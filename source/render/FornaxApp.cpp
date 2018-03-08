@@ -1,5 +1,15 @@
 #include "FornaxApp.h"
 
+FornaxApp::FornaxApp()
+{
+	renderer = new VkRenderBackend();
+}
+
+FornaxApp::~FornaxApp()
+{
+	delete renderer;
+}
+
 void FornaxApp::Run()
 {
 	renderer->RequestFrameRender();

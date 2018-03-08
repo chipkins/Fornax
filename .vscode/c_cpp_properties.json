@@ -68,7 +68,10 @@
             "browse": {
                 "path": [
                     "C:/Program Files (x86)/Microsoft Visual Studio 14.0/VC/include/*",
-                    "${workspaceRoot}"
+					"${workspaceRoot}",
+                            "${workspaceRoot}/include/VulkanSDK/x86_64/include",
+                            "${workspaceRoot}/include/glfw-3.2.1/include",
+                            "${workspaceRoot}/glm-0.9.8.5"
                 ],
                 "limitSymbolsToIncludedHeaders": true,
                 "databaseFilename": ""

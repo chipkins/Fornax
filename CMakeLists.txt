@@ -23,13 +23,20 @@ add_executable(${PROJECT_NAME} ${SOURCE_FILES} ${HEADER_FILES})
 
 set_target_properties(${ProjectId} PROPERTIES LINKER_LANGUAGE CXX)
 
-target_link_libraries(${PROJECT_NAME}
-	${CMAKE_SOURCE_DIR}/include/glfw-3.2.1/src/libglfw.so
-	${CMAKE_SOURCE_DIR}/include/VulkanSDK/x86_64/lib/libvulkan.so
-)
+if (WIN32)
+	target_link_libraries(${PROJECT_NAME}
+		${CMAKE_SOURCE_DIR}/include/glfw-3.2.1/win32/glfw3.lib
+		${CMAKE_SOURCE_DIR}/include/VulkanSDK/win32/Lib32/vulkan-1.lib
+	)
+else()
+	target_link_libraries(${PROJECT_NAME}
+		${CMAKE_SOURCE_DIR}/include/glfw-3.2.1/x86_64/libglfw.so
+		${CMAKE_SOURCE_DIR}/include/VulkanSDK/x86_64/lib/libvulkan.so
+	)
+endif()
 
 include_directories(
 	${CMAKE_SOURCE_DIR}/include/glfw-3.2.1/include
 	${CMAKE_SOURCE_DIR}/include/glm-0.9.8.5
-	${CMAKE_SOURCE_DIR}/include/VulkanSDK/x86_64/include
+	${CMAKE_SOURCE_DIR}/include/VulkanSDK/include
 )

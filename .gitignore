@@ -10,9 +10,12 @@
 CMakeCache.txt
 CMakeFiles
 CMakeScripts
+CMakeTools
 Testing
 Makefile
-cmake_install.make
+cmake_install.cmake
 install_manifest.txt
 compile_commands.json
 CTestTestfile.cmake
+
+build/*

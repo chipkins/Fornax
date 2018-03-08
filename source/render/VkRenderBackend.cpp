@@ -150,15 +150,19 @@ void VkRenderBackend::CreateLogicalDeviceAndQueues()
 
 	std::vector<VkDeviceQueueCreateInfo> queueCreateInfoVec;
 
-	VkDeviceQueueCreateInfo queueCreateInfo = {};
-	queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-	queueCreateInfo.queueFamilyIndex = m_context.graphicsFamilyIndex;
-	queueCreateInfo.queueCount = 1;
-	queueCreateInfo.pQueuePriorities = &queuePriority;
-	queueCreateInfoVec.push_back(queueCreateInfo);
+	VkDeviceQueueCreateInfo graphicsQueueCreateInfo = {};
+	graphicsQueueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+	graphicsQueueCreateInfo.queueFamilyIndex = m_context.graphicsFamilyIndex;
+	graphicsQueueCreateInfo.queueCount = 1;
+	graphicsQueueCreateInfo.pQueuePriorities = &queuePriority;
+	queueCreateInfoVec.push_back(graphicsQueueCreateInfo);
 
-	queueCreateInfo.queueFamilyIndex = m_context.presentFamilyIndex;
-	queueCreateInfoVec.push_back(queueCreateInfo);
+	VkDeviceQueueCreateInfo presentQueueCreateInfo = {};
+	presentQueueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+	presentQueueCreateInfo.queueFamilyIndex = m_context.presentFamilyIndex;
+	presentQueueCreateInfo.queueCount = 1;
+	presentQueueCreateInfo.pQueuePriorities = &queuePriority;
+	queueCreateInfoVec.push_back(presentQueueCreateInfo);
 
 	m_context.gpu.deviceFeatures = {};
 
@@ -348,24 +352,16 @@ void VkRenderBackend::QuerySwapChainSupport(VkPhysicalDevice device)
 	vkGetPhysicalDeviceSurfaceFormatsKHR(device, m_surface, &formatCount, nullptr);
 	if (formatCount != 0)
 	{
-		//m_surfaceFormats.reserve(formatCount);
-		std::vector<VkSurfaceFormatKHR> surfaceFormats(formatCount);
-		vkGetPhysicalDeviceSurfaceFormatsKHR(device, m_surface, &formatCount, surfaceFormats.data());
-		for (auto format : surfaceFormats)
-		{
-			m_surfaceFormats.push_back(format);
-		}
-		//m_surfaceFormats = std::move(surfaceFormats);
+		m_context.gpu.surfaceFormats.resize(formatCount);
+		vkGetPhysicalDeviceSurfaceFormatsKHR(device, m_surface, &formatCount, m_context.gpu.surfaceFormats.data());
 	}
 
 	uint32_t presentModeCount;
 	vkGetPhysicalDeviceSurfacePresentModesKHR(device, m_surface, &presentModeCount, nullptr);
 	if (presentModeCount)
 	{
-		//context.gpu.presentModes.reserve(presentModeCount);
-		std::vector<VkPresentModeKHR> presentModes(presentModeCount);
-		vkGetPhysicalDeviceSurfacePresentModesKHR(device, m_surface, &presentModeCount, presentModes.data());
-		m_presentModes = std::move(presentModes);
+		m_context.gpu.presentModes.resize(presentModeCount);
+		vkGetPhysicalDeviceSurfacePresentModesKHR(device, m_surface, &presentModeCount, m_context.gpu.presentModes.data());
 	}
 }
 
