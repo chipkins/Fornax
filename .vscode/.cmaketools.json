@@ -1,0 +1,73 @@
+{
+  "variant": {
+    "label": "Debug",
+    "keywordSettings": {
+      "buildType": "debug"
+    },
+    "description": "Emit debug information without performing optimizations"
+  },
+  "activeEnvironments": [],
+  "codeModel": {
+    "configurations": [
+      {
+        "name": "Debug",
+        "projects": [
+          {
+            "buildDirectory": "/home/chris/Documents/VS-Code_Projects/Fornax/build",
+            "name": "Fornax",
+            "sourceDirectory": "/home/chris/Documents/VS-Code_Projects/Fornax",
+            "targets": [
+              {
+                "artifacts": [
+                  "/home/chris/Documents/VS-Code_Projects/Fornax/build/Fornax"
+                ],
+                "buildDirectory": "/home/chris/Documents/VS-Code_Projects/Fornax/build",
+                "fileGroups": [
+                  {
+                    "isGenerated": false,
+                    "sources": [
+                      "source/render/FornaxApp.h",
+                      "source/render/VkRenderBackend.h"
+                    ]
+                  },
+                  {
+                    "compileFlags": "-g   -std=gnu++11",
+                    "includePath": [
+                      {
+                        "path": "/home/chris/Documents/VS-Code_Projects/Fornax/include/glfw-3.2.1/include"
+                      },
+                      {
+                        "path": "/home/chris/Documents/VS-Code_Projects/Fornax/include/glm-0.9.8.5"
+                      },
+                      {
+                        "path": "/home/chris/Documents/VS-Code_Projects/Fornax/include/VulkanSDK/x86_64/include"
+                      }
+                    ],
+                    "isGenerated": false,
+                    "language": "CXX",
+                    "sources": [
+                      "source/main.cpp",
+                      "source/render/FornaxApp.cpp",
+                      "source/render/VkRenderBackend.cpp"
+                    ]
+                  }
+                ],
+                "fullName": "Fornax",
+                "linkFlags": "-rdynamic",
+                "linkLanguageFlags": "-g",
+                "linkLibraries": "-Wl,-rpath,/home/chris/Documents/VS-Code_Projects/Fornax/include/glfw-3.2.1/src:/home/chris/Documents/VS-Code_Projects/Fornax/include/VulkanSDK/x86_64/lib ../include/glfw-3.2.1/src/libglfw.so ../include/VulkanSDK/x86_64/lib/libvulkan.so",
+                "linkerLanguage": "CXX",
+                "name": "Fornax",
+                "sourceDirectory": "/home/chris/Documents/VS-Code_Projects/Fornax",
+                "type": "EXECUTABLE"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "cookie": "0.8887378660064948",
+    "inReplyTo": "codemodel",
+    "type": "reply"
+  }
+}
