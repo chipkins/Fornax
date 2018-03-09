@@ -54,6 +54,8 @@ public:
 
 	void RequestFrameRender();
 
+	void WaitForDrawFinish();
+
 private:
 	VkInstance m_instance;
 	VkContext  m_context;
@@ -62,15 +64,21 @@ private:
 	std::vector<VkSurfaceFormatKHR>      m_surfaceFormats;
 	std::vector<VkPresentModeKHR>        m_presentModes;
 	
-	VkSwapchainKHR           m_swapchain;
-	std::vector<VkImage>     m_swapchainImages;
-	std::vector<VkImageView> m_swapchainImageViews;
-	VkFormat                 m_swapchainImageFormat;
-	VkExtent2D               m_swapchainExtent;
+	VkSwapchainKHR             m_swapchain;
+	std::vector<VkImage>       m_swapchainImages;
+	std::vector<VkImageView>   m_swapchainImageViews;
+	VkFormat                   m_swapchainImageFormat;
+	VkExtent2D                 m_swapchainExtent;
+	std::vector<VkFramebuffer> m_swapchainFramebuffers;
 
-	VkRenderPass     m_renderPass;
 	VkPipelineLayout m_pipelineLayout;
 	VkPipeline       m_graphicsPipeline;
+
+	VkCommandPool                m_commandPool;
+	std::vector<VkCommandBuffer> m_commandBuffers;
+
+	VkSemaphore m_imageAvailableSemaphore;
+	VkSemaphore m_renderFinishedSemaphore;
 	
 	VkDebugReportCallbackEXT m_callback;
 
@@ -84,6 +92,10 @@ private:
 	void CreateImageViews();
 	void CreateRenderPass();
 	void CreateGraphicsPipeline();
+	void CreateFrameBuffers();
+	void CreateCommandPool();
+	void CreateCommandBuffers();
+	void CreateSephamores();
 
 	// Helper Functions
 	bool CheckValidationLayerSupport();

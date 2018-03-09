@@ -12,12 +12,13 @@ FornaxApp::~FornaxApp()
 
 void FornaxApp::Run()
 {
-	renderer->RequestFrameRender();
-
 	while (!glfwWindowShouldClose(window))
 	{
 		glfwPollEvents();
+		renderer->RequestFrameRender();
 	}
+
+	renderer->WaitForDrawFinish();
 }
 
 void FornaxApp::Cleanup()

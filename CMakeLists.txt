@@ -5,7 +5,7 @@ string(REPLACE " " "_" ProjectId ${ProjectId})
 project(${ProjectId})
 
 if (WIN32)
-	set(GLSL_VALIDATOR "${CMAKE_SOURCE_DIR}/include/VulkanSDK/win32/bin/glslangValidator.exe")
+	set(GLSL_VALIDATOR "${CMAKE_SOURCE_DIR}/include/VulkanSDK/win32/Bin32/glslangValidator.exe")
 else()
 	set(GLSL_VALIDATOR "${CMAKE_SOURCE_DIR}/include/VulkanSDK/x86_64/bin/glslangValidator")
 endif()
