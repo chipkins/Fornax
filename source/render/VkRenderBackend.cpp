@@ -1,5 +1,8 @@
 #include "VkRenderBackend.h"
+
+#include <iostream>
 #include <cstring>
+#include <limits>
 
 #pragma region Static Functions
 
@@ -51,14 +54,19 @@ void VkRenderBackend::Init(GLFWwindow* window)
 	CreateSurface(window);
 	SelectPhysicalDevice();
 	CreateLogicalDeviceAndQueues();
+	CreateSwapChain();
+	CreateImageViews();
 }
 
 void VkRenderBackend::Cleanup()
 {
+	for (auto imageView : m_swapchainImageViews)
+	{
+		vkDestroyImageView(m_context.device, imageView, nullptr);
+	}
+	vkDestroySwapchainKHR(m_context.device, m_swapchain, nullptr);
 	vkDestroyDevice(m_context.device, nullptr);
-
 	DestroyDebugReportCallbackEXT(m_instance, m_callback, nullptr);
-
 	vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
 	vkDestroyInstance(m_instance, nullptr);
 }
@@ -157,12 +165,15 @@ void VkRenderBackend::CreateLogicalDeviceAndQueues()
 	graphicsQueueCreateInfo.pQueuePriorities = &queuePriority;
 	queueCreateInfoVec.push_back(graphicsQueueCreateInfo);
 
-	VkDeviceQueueCreateInfo presentQueueCreateInfo = {};
-	presentQueueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-	presentQueueCreateInfo.queueFamilyIndex = m_context.presentFamilyIndex;
-	presentQueueCreateInfo.queueCount = 1;
-	presentQueueCreateInfo.pQueuePriorities = &queuePriority;
-	queueCreateInfoVec.push_back(presentQueueCreateInfo);
+	if (m_context.graphicsFamilyIndex != m_context.presentFamilyIndex)
+	{
+		VkDeviceQueueCreateInfo presentQueueCreateInfo = {};
+		presentQueueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+		presentQueueCreateInfo.queueFamilyIndex = m_context.presentFamilyIndex;
+		presentQueueCreateInfo.queueCount = 1;
+		presentQueueCreateInfo.pQueuePriorities = &queuePriority;
+		queueCreateInfoVec.push_back(presentQueueCreateInfo);
+	}
 
 	m_context.gpu.deviceFeatures = {};
 
@@ -191,6 +202,97 @@ void VkRenderBackend::CreateLogicalDeviceAndQueues()
 
 	vkGetDeviceQueue(m_context.device, m_context.graphicsFamilyIndex, 0, &m_context.graphicsQueue);
 	vkGetDeviceQueue(m_context.device, m_context.presentFamilyIndex, 0, &m_context.presentQueue);
+}
+
+void VkRenderBackend::CreateSwapChain()
+{
+	//QuerySwapChainSupport(m_context.gpu.physicalDevice);
+
+	VkSurfaceFormatKHR surfaceFormat = ChooseSwapSurfaceFormat(m_context.gpu.surfaceFormats);
+	VkPresentModeKHR presentMode = ChooseSwapPresentMode(m_context.gpu.presentModes);
+	VkExtent2D extent = ChooseSwapExtent(m_context.gpu.surfaceCapabilities);
+
+	uint32_t imageCount = m_context.gpu.surfaceCapabilities.minImageCount + 1;
+	if (m_context.gpu.surfaceCapabilities.maxImageCount > 0 && imageCount > m_context.gpu.surfaceCapabilities.maxImageCount)
+	{
+		imageCount = m_context.gpu.surfaceCapabilities.maxImageCount;
+	}
+
+	VkSwapchainCreateInfoKHR createInfo = {};
+	createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+	createInfo.surface = m_surface;
+	createInfo.minImageCount = imageCount;
+	createInfo.imageFormat = surfaceFormat.format;
+	createInfo.imageColorSpace = surfaceFormat.colorSpace;
+	createInfo.imageExtent = extent;
+	createInfo.imageArrayLayers = 1;
+	createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+
+	uint32_t queueFamilyIndices[] = {(uint32_t)m_context.graphicsFamilyIndex, (uint32_t)m_context.presentFamilyIndex};
+
+	if (m_context.graphicsFamilyIndex != m_context.presentFamilyIndex)
+	{
+		createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
+		createInfo.queueFamilyIndexCount = 2;
+		createInfo.pQueueFamilyIndices = queueFamilyIndices;
+	}
+	else
+	{
+		createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+		createInfo.queueFamilyIndexCount = 0;
+		createInfo.pQueueFamilyIndices = nullptr;
+	}
+
+	createInfo.preTransform = m_context.gpu.surfaceCapabilities.currentTransform;
+	createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+	createInfo.presentMode = presentMode;
+	createInfo.clipped = VK_TRUE;
+	createInfo.oldSwapchain = VK_NULL_HANDLE;
+
+	if (vkCreateSwapchainKHR(m_context.device, &createInfo, nullptr, &m_swapchain) != VK_SUCCESS)
+	{
+		throw std::runtime_error("failed to create swap chain!");
+	}
+
+	m_swapchainImageFormat = surfaceFormat.format;
+	m_swapchainExtent = extent;
+
+	vkGetSwapchainImagesKHR(m_context.device, m_swapchain, &imageCount, nullptr);
+	m_swapchainImages.resize(imageCount);
+	vkGetSwapchainImagesKHR(m_context.device, m_swapchain, &imageCount, m_swapchainImages.data());
+}
+
+void VkRenderBackend::CreateImageViews()
+{
+	m_swapchainImageViews.resize(m_swapchainImages.size());
+
+	for (size_t i = 0; i < m_swapchainImages.size(); ++i)
+	{
+		VkImageViewCreateInfo createInfo = {};
+		createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+		createInfo.image = m_swapchainImages[i];
+		createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		createInfo.format = m_swapchainImageFormat;
+		createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+		createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+		createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+		createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+		createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		createInfo.subresourceRange.baseMipLevel = 0;
+		createInfo.subresourceRange.levelCount = 1;
+		createInfo.subresourceRange.baseArrayLayer = 0;
+		createInfo.subresourceRange.layerCount = 1;
+
+		if (vkCreateImageView(m_context.device, &createInfo, nullptr, &m_swapchainImageViews[i]) != VK_SUCCESS)
+		{
+			throw std::runtime_error("failed to create image views!");
+		}
+	}
+}
+
+void VkRenderBackend::CreateGraphicsPipeline()
+{
+	
 }
 
 void VkRenderBackend::SetupDebugCallback()
@@ -257,6 +359,11 @@ std::vector<const char*> VkRenderBackend::GetRequiredExtensions()
 
 bool VkRenderBackend::IsDeviceSuitable(VkPhysicalDevice device)
 {
+	vkGetPhysicalDeviceProperties(device, &m_context.gpu.deviceProperties);
+	vkGetPhysicalDeviceFeatures(device, &m_context.gpu.deviceFeatures);
+
+	bool isDiscrete = m_context.gpu.deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
+
 	FindQueueFamilies(device);
 	bool queueFamiliesFound = m_context.graphicsFamilyIndex > -1 && m_context.presentFamilyIndex > -1;
 
@@ -269,28 +376,21 @@ bool VkRenderBackend::IsDeviceSuitable(VkPhysicalDevice device)
 		swapChainAdequate = !m_context.gpu.surfaceFormats.empty() && !m_context.gpu.presentModes.empty();
 	}
 
-	return queueFamiliesFound && extensionsSupported && swapChainAdequate;
-
-	// VkPhysicalDeviceProperties deviceProperties;
-	// VkPhysicalDeviceFeatures deviceFeatures;
-	// vkGetPhysicalDeviceProperties(device, &deviceProperties);
-	// vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
-
-	// return deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU && deviceFeatures.geometryShader;
+	return isDiscrete && queueFamiliesFound && extensionsSupported && swapChainAdequate;
 }
 
 bool VkRenderBackend::CheckDeviceExtensionSupport(VkPhysicalDevice device)
 {
 	uint32_t extensionCount;
 	vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
-	std::vector<VkExtensionProperties> availableExtensions(extensionCount);
-	vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableExtensions.data());
+	m_context.gpu.extensionProperties.resize(extensionCount);
+	vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, m_context.gpu.extensionProperties.data());
 
 	for (const char* extensionName : c_deviceExtensions)
 	{
 		bool extensionFound = false;
 
-		for (const auto& extension : availableExtensions)
+		for (const auto& extension : m_context.gpu.extensionProperties)
 		{
 			
 			if (strcmp(extensionName, extension.extensionName) == 0)
@@ -316,11 +416,11 @@ void VkRenderBackend::FindQueueFamilies(VkPhysicalDevice device)
 
 	uint32_t queueFamilyCount = 0;
 	vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
-	std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
-	vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
+	m_context.gpu.queueFamilyProperties.resize(queueFamilyCount);
+	vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, m_context.gpu.queueFamilyProperties.data());
 
 	int32_t i = 0;
-	for (const auto& queueFamily : queueFamilies)
+	for (const auto& queueFamily : m_context.gpu.queueFamilyProperties)
 	{
 		VkBool32 presentSupport = false;
 		vkGetPhysicalDeviceSurfaceSupportKHR(device, i, m_surface, &presentSupport);
@@ -362,6 +462,59 @@ void VkRenderBackend::QuerySwapChainSupport(VkPhysicalDevice device)
 	{
 		m_context.gpu.presentModes.resize(presentModeCount);
 		vkGetPhysicalDeviceSurfacePresentModesKHR(device, m_surface, &presentModeCount, m_context.gpu.presentModes.data());
+	}
+}
+
+VkSurfaceFormatKHR VkRenderBackend::ChooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats)
+{
+	if (availableFormats.size() == 1 && availableFormats[0].format == VK_FORMAT_UNDEFINED)
+	{
+		return {VK_FORMAT_B8G8R8A8_UNORM, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR};
+	}
+
+	for (const auto& availableFormat : availableFormats)
+	{
+		if (availableFormat.format == VK_FORMAT_B8G8R8A8_UNORM && availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+		{
+			return availableFormat;
+		}
+	}
+
+	return availableFormats[0];
+}
+
+VkPresentModeKHR VkRenderBackend::ChooseSwapPresentMode(const std::vector<VkPresentModeKHR> availablePresentModes)
+{
+	VkPresentModeKHR bestMode = VK_PRESENT_MODE_FIFO_KHR;
+
+	for (const auto& availablePresentMode : availablePresentModes)
+	{
+		if (availablePresentMode == VK_PRESENT_MODE_FIFO_KHR)
+		{
+			return availablePresentMode;
+		}
+		else if (availablePresentMode == VK_PRESENT_MODE_IMMEDIATE_KHR)
+		{
+			bestMode = availablePresentMode;
+		}
+	}
+
+	return bestMode;
+}
+
+VkExtent2D VkRenderBackend::ChooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities)
+{
+	if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max())
+	{
+		return capabilities.currentExtent;
+	}
+	else
+	{
+		VkExtent2D actualExtent = {800, 600};
+
+		actualExtent.width = std::max(capabilities.minImageExtent.width, std::min(capabilities.maxImageExtent.width, actualExtent.width));
+
+		return actualExtent;
 	}
 }
 
