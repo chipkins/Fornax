@@ -67,6 +67,10 @@ private:
 	std::vector<VkImageView> m_swapchainImageViews;
 	VkFormat                 m_swapchainImageFormat;
 	VkExtent2D               m_swapchainExtent;
+
+	VkRenderPass     m_renderPass;
+	VkPipelineLayout m_pipelineLayout;
+	VkPipeline       m_graphicsPipeline;
 	
 	VkDebugReportCallbackEXT m_callback;
 
@@ -78,6 +82,7 @@ private:
 	void CreateLogicalDeviceAndQueues();
 	void CreateSwapChain();
 	void CreateImageViews();
+	void CreateRenderPass();
 	void CreateGraphicsPipeline();
 
 	// Helper Functions
@@ -94,4 +99,6 @@ private:
 	VkSurfaceFormatKHR ChooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
 	VkPresentModeKHR ChooseSwapPresentMode(const std::vector<VkPresentModeKHR> availablePresentModes);
 	VkExtent2D ChooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
+
+	VkShaderModule CreateShaderModule(const std::vector<char>& code);
 };
