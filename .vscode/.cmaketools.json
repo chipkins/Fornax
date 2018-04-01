@@ -26,7 +26,9 @@
                   {
                     "isGenerated": false,
                     "sources": [
+                      "source/PrecompiledHeader.h",
                       "source/render/FornaxApp.h",
+                      "source/render/Model.h",
                       "source/render/VkRenderBackend.h"
                     ]
                   },
@@ -40,7 +42,7 @@
                         "path": "/home/chris/Documents/VS-Code_Projects/Fornax/include/glm-0.9.8.5"
                       },
                       {
-                        "path": "/home/chris/Documents/VS-Code_Projects/Fornax/include/VulkanSDK/x86_64/include"
+                        "path": "/home/chris/Documents/VS-Code_Projects/Fornax/include/VulkanSDK/include"
                       }
                     ],
                     "isGenerated": false,
@@ -48,6 +50,7 @@
                     "sources": [
                       "source/main.cpp",
                       "source/render/FornaxApp.cpp",
+                      "source/render/Model.cpp",
                       "source/render/VkRenderBackend.cpp"
                     ]
                   }
@@ -55,18 +58,36 @@
                 "fullName": "Fornax",
                 "linkFlags": "-rdynamic",
                 "linkLanguageFlags": "-g",
-                "linkLibraries": "-Wl,-rpath,/home/chris/Documents/VS-Code_Projects/Fornax/include/glfw-3.2.1/src:/home/chris/Documents/VS-Code_Projects/Fornax/include/VulkanSDK/x86_64/lib ../include/glfw-3.2.1/src/libglfw.so ../include/VulkanSDK/x86_64/lib/libvulkan.so",
+                "linkLibraries": "-Wl,-rpath,/home/chris/Documents/VS-Code_Projects/Fornax/include/glfw-3.2.1/x86_64:/home/chris/Documents/VS-Code_Projects/Fornax/include/VulkanSDK/x86_64/lib ../include/glfw-3.2.1/x86_64/libglfw.so ../include/VulkanSDK/x86_64/lib/libvulkan.so",
                 "linkerLanguage": "CXX",
                 "name": "Fornax",
                 "sourceDirectory": "/home/chris/Documents/VS-Code_Projects/Fornax",
                 "type": "EXECUTABLE"
+              },
+              {
+                "buildDirectory": "/home/chris/Documents/VS-Code_Projects/Fornax/build",
+                "fileGroups": [
+                  {
+                    "isGenerated": true,
+                    "sources": [
+                      "build/CMakeFiles/Shaders",
+                      "build/CMakeFiles/Shaders.rule",
+                      "build/shaders/shader.frag.spv.rule",
+                      "build/shaders/shader.vert.spv.rule"
+                    ]
+                  }
+                ],
+                "fullName": "Shaders",
+                "name": "Shaders",
+                "sourceDirectory": "/home/chris/Documents/VS-Code_Projects/Fornax",
+                "type": "UTILITY"
               }
             ]
           }
         ]
       }
     ],
-    "cookie": "0.8887378660064948",
+    "cookie": "0.1266345277406089",
     "inReplyTo": "codemodel",
     "type": "reply"
   }

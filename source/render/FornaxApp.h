@@ -12,11 +12,11 @@ public:
 	~FornaxApp();
 
 	void Run();
-	void Cleanup();
-
-	void CreateWindow();
 
 private:
-	GLFWwindow* window;
+	GLFWwindow* window = nullptr;
 	VkRenderBackend* renderer;
+
+	void Cleanup();
+	void CreateWindow();
 };

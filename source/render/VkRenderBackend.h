@@ -1,9 +1,7 @@
 #pragma once
 
-#include <vector>
-
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
+#include "../PrecompiledHeader.h"
+#include "Model.h"
 
 #ifdef NDEBUG
 	const bool c_enableValidationLayers = false;
@@ -47,6 +45,20 @@ struct VkContext
 	bool                  supersampling;
 };
 
+struct VkWindow
+{
+	GLFWwindow*  windowPtr;
+	VkSurfaceKHR surface;
+	int32_t width, height;
+};
+
+struct UniformBufferObject
+{
+	glm::mat4 model;
+	glm::mat4 view;
+	glm::mat4 proj;
+};
+
 class VkRenderBackend {
 public:
 	void Init(GLFWwindow* window);
@@ -54,15 +66,16 @@ public:
 
 	void RequestFrameRender();
 
+	void UpdateUniformBuffer();
+
 	void WaitForDrawFinish();
+
+	void RecreateSwapchain();
 
 private:
 	VkInstance m_instance;
 	VkContext  m_context;
-
-	VkSurfaceKHR                         m_surface;
-	std::vector<VkSurfaceFormatKHR>      m_surfaceFormats;
-	std::vector<VkPresentModeKHR>        m_presentModes;
+	VkWindow   m_window;
 	
 	VkSwapchainKHR             m_swapchain;
 	std::vector<VkImage>       m_swapchainImages;
@@ -71,11 +84,22 @@ private:
 	VkExtent2D                 m_swapchainExtent;
 	std::vector<VkFramebuffer> m_swapchainFramebuffers;
 
-	VkPipelineLayout m_pipelineLayout;
-	VkPipeline       m_graphicsPipeline;
+	VkPipelineLayout      m_pipelineLayout;
+	VkPipeline            m_graphicsPipeline;
 
 	VkCommandPool                m_commandPool;
 	std::vector<VkCommandBuffer> m_commandBuffers;
+
+	VkBuffer       m_vertexBuffer;
+	VkDeviceMemory m_vertexBufferMemory;
+	VkBuffer       m_indexBuffer;
+	VkDeviceMemory m_indexBufferMemory;
+	VkBuffer       m_uniformBuffer;
+	VkDeviceMemory m_uniformBufferMemory;
+
+	VkDescriptorSetLayout m_descriptorSetLayout;
+	VkDescriptorPool      m_descriptorPool;
+	VkDescriptorSet       m_descriptorSet;
 
 	VkSemaphore m_imageAvailableSemaphore;
 	VkSemaphore m_renderFinishedSemaphore;
@@ -85,17 +109,25 @@ private:
 	// Vulkan Initialization Functions
 	void CreateInstance();
 	void SetupDebugCallback();
-	void CreateSurface(GLFWwindow* window);
+	void CreateSurface();
 	void SelectPhysicalDevice();
 	void CreateLogicalDeviceAndQueues();
-	void CreateSwapChain();
+	void CreateSwapchain();
 	void CreateImageViews();
 	void CreateRenderPass();
+	void CreateDescriptorSetLayout();
 	void CreateGraphicsPipeline();
 	void CreateFrameBuffers();
 	void CreateCommandPool();
+	void CreateVertexBuffer();
+	void CreateIndexBuffer();
+	void CreateUniformBuffer();
+	void CreateDescriptorPool();
+	void CreateDescriptorSet();
 	void CreateCommandBuffers();
 	void CreateSephamores();
+
+	void CleanupSwapchain();
 
 	// Helper Functions
 	bool CheckValidationLayerSupport();
@@ -113,4 +145,8 @@ private:
 	VkExtent2D ChooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
 
 	VkShaderModule CreateShaderModule(const std::vector<char>& code);
+
+	void CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
+	void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
+	uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 };

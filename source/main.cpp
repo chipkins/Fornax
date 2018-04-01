@@ -8,15 +8,13 @@ int main()
 	FornaxApp app;
 	try
 	{
-		app.CreateWindow();
+		app.Run();
 	}
 	catch (const std::runtime_error& e)
 	{
 		std::cerr << e.what() << std::endl;
 		return EXIT_FAILURE;
 	}
-	app.Run();
-	app.Cleanup();
 
 	return EXIT_SUCCESS;
 }
