@@ -59,7 +59,8 @@ struct UniformBufferObject
 	glm::mat4 proj;
 };
 
-class VkRenderBackend {
+class VkRenderBackend 
+{
 public:
 	void Init(GLFWwindow* window);
 	void Cleanup();
@@ -90,6 +91,14 @@ private:
 	VkCommandPool                m_commandPool;
 	std::vector<VkCommandBuffer> m_commandBuffers;
 
+	VkImage        m_depthImage;
+	VkDeviceMemory m_depthImageMemory;
+	VkImageView    m_depthImageView;
+	VkImage        m_textureImage;
+	VkImageView    m_textureImageView;
+	VkDeviceMemory m_textureImageMemory;
+	VkSampler      m_textureSampler;
+
 	VkBuffer       m_vertexBuffer;
 	VkDeviceMemory m_vertexBufferMemory;
 	VkBuffer       m_indexBuffer;
@@ -106,6 +115,8 @@ private:
 	
 	VkDebugReportCallbackEXT m_callback;
 
+	std::vector<Model> m_models;
+
 	// Vulkan Initialization Functions
 	void CreateInstance();
 	void SetupDebugCallback();
@@ -119,6 +130,10 @@ private:
 	void CreateGraphicsPipeline();
 	void CreateFrameBuffers();
 	void CreateCommandPool();
+	void CreateDepthResources();
+	void CreateTextureImage();
+	void CreateTextureImageView();
+	void CreateTextureSampler();
 	void CreateVertexBuffer();
 	void CreateIndexBuffer();
 	void CreateUniformBuffer();
@@ -146,7 +161,17 @@ private:
 
 	VkShaderModule CreateShaderModule(const std::vector<char>& code);
 
+	void CreateImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
+	VkImageView CreateImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
+	void TransitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
+	void CopyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
 	void CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
 	void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
 	uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
+	VkFormat FindSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
+	VkFormat FindDepthFormat();
+	bool HasStencilComponent(VkFormat format);
+
+	VkCommandBuffer BeginSingleTimeCommands();
+	void            EndSingleTimeCommands(VkCommandBuffer commandBuffer);
 };

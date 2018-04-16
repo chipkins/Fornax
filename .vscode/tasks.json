@@ -6,7 +6,7 @@
 		{
 			"label": "build",
 			"type": "shell",
-			"command": "cd build && cmake .. && make",
+			"command": "cd build && cmake -D CMAKE_CXX_COMPILER=clang++ .. && make",
 			"group": {
 				"kind": "build",
 				"isDefault": true

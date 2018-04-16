@@ -11,6 +11,7 @@ else()
 endif()
 
 set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
@@ -22,8 +23,8 @@ set(${PROJECT_NAME}._VERSION_BUILD 0)
 file(GLOB_RECURSE SOURCE_FILES "source/*.cpp")
 file(GLOB_RECURSE HEADER_FILES "source/*.h")
 file(GLOB_RECURSE SHADER_FILES 
-	"source/shaders/*.frag"
-	"source/shaders/*.vert"
+	"source/assets/shaders/*.frag"
+	"source/assets/shaders/*.vert"
 )
 
 source_group("source" FILES ${SOURCE_FILES})
@@ -46,9 +47,11 @@ else()
 endif()
 
 include_directories(
+	${CMAKE_SOURCE_DIR}/include/VulkanSDK/include
 	${CMAKE_SOURCE_DIR}/include/glfw-3.2.1/include
 	${CMAKE_SOURCE_DIR}/include/glm-0.9.8.5
-	${CMAKE_SOURCE_DIR}/include/VulkanSDK/include
+	${CMAKE_SOURCE_DIR}/include/stb
+	${CMAKE_SOURCE_DIR}/include/tinyobjloader
 )
 
 foreach(GLSL ${SHADER_FILES})
@@ -70,9 +73,9 @@ add_custom_target(
 
 add_dependencies(${PROJECT_NAME} Shaders)
 
-add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-	COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_SOURCE_DIR}/source/shaders/spirv"
-	COMMAND ${CMAKE_COMMAND} -E copy_directory
-		"${CMAKE_BINARY_DIR}/shaders"
-		"${CMAKE_SOURCE_DIR}/source/shaders/spirv"
-)
+# add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+# 	COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_SOURCE_DIR}/source/assets/shaders/spirv"
+# 	COMMAND ${CMAKE_COMMAND} -E copy_directory
+# 		"${CMAKE_BINARY_DIR}/shaders"
+# 		"${CMAKE_SOURCE_DIR}/source/assets/shaders/spirv"
+# )

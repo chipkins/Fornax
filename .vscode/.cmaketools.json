@@ -36,13 +36,16 @@
                     "compileFlags": "-g   -std=gnu++11",
                     "includePath": [
                       {
+                        "path": "/home/chris/Documents/VS-Code_Projects/Fornax/include/VulkanSDK/include"
+                      },
+                      {
                         "path": "/home/chris/Documents/VS-Code_Projects/Fornax/include/glfw-3.2.1/include"
                       },
                       {
                         "path": "/home/chris/Documents/VS-Code_Projects/Fornax/include/glm-0.9.8.5"
                       },
                       {
-                        "path": "/home/chris/Documents/VS-Code_Projects/Fornax/include/VulkanSDK/include"
+                        "path": "/home/chris/Documents/VS-Code_Projects/Fornax/include/stb"
                       }
                     ],
                     "isGenerated": false,
@@ -87,7 +90,7 @@
         ]
       }
     ],
-    "cookie": "0.1266345277406089",
+    "cookie": "0.4900261261817149",
     "inReplyTo": "codemodel",
     "type": "reply"
   }

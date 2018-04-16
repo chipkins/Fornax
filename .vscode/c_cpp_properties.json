@@ -35,7 +35,9 @@
                 "${workspaceRoot}",
                 "${workspaceRoot}/include/VulkanSDK/x86_64/include",
                 "${workspaceRoot}/include/glfw-3.2.1/include",
-                "${workspaceRoot}/glm-0.9.8.5"
+                "${workspaceRoot}/include/glm-0.9.8.5",
+                "${workspaceRoot}/include/stb",
+                "${workspaceRoot}/include/tinyobjloader"
             ],
             "defines": [],
             "intelliSenseMode": "clang-x64",
@@ -60,7 +62,12 @@
             "name": "Win32",
             "includePath": [
                 "C:/Program Files (x86)/Microsoft Visual Studio 14.0/VC/include",
-                "${workspaceRoot}"
+                "${workspaceRoot}",
+                "${workspaceRoot}/include/VulkanSDK/x86_64/include",
+                "${workspaceRoot}/include/glfw-3.2.1/include",
+                "${workspaceRoot}/include/glm-0.9.8.5",
+                "${workspaceRoot}/include/stb",
+                "${workspaceRoot}/include/tinyobjloader"
             ],
             "defines": [
                 "_DEBUG",
@@ -71,10 +78,7 @@
             "browse": {
                 "path": [
                     "C:/Program Files (x86)/Microsoft Visual Studio 14.0/VC/include/*",
-                    "${workspaceRoot}",
-                    "${workspaceRoot}/include/VulkanSDK/x86_64/include",
-                    "${workspaceRoot}/include/glfw-3.2.1/include",
-                    "${workspaceRoot}/glm-0.9.8.5"
+                    "${workspaceRoot}"
                 ],
                 "limitSymbolsToIncludedHeaders": true,
                 "databaseFilename": ""
