@@ -65,8 +65,12 @@ class Model
 public:
 	void LoadModel(const char* modelFile);
 
-	std::vector<Vertex> vertices;
-	std::vector<uint32_t> indices;
+	Vertex*   getVertices() { return vertices.data(); }
+	size_t    getNumVertices() { return vertices.size(); }
+	uint32_t* getIndices() { return indices.data(); }
+	size_t    getNumIndices() { return indices.size(); }
 
 private:
+	std::vector<Vertex>   vertices;
+	std::vector<uint32_t> indices;
 };

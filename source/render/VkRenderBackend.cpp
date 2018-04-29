@@ -157,8 +157,10 @@ void VkRenderBackend::RequestFrameRender()
 	submitInfo.signalSemaphoreCount = 1;
 	submitInfo.pSignalSemaphores = signalSemaphores;
 
-	if (vkQueueSubmit(m_context.graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS)
+	VkResult result = vkQueueSubmit(m_context.graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+	if (result != VK_SUCCESS)
 	{
+		std::cout << result << std::endl;
 		throw std::runtime_error("failed to submit draw command buffer!");
 	}
 
@@ -184,6 +186,7 @@ void VkRenderBackend::UpdateUniformBuffer()
 	float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
 	UniformBufferObject ubo = {};
+	//ubo.model = glm::mat4(1.0f);
 	ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 	ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 	ubo.proj = glm::perspective(glm::radians(45.0f), m_window.width / (float)m_window.height, 0.1f, 10.0f);
@@ -693,7 +696,7 @@ void VkRenderBackend::CreateDepthResources()
 void VkRenderBackend::CreateTextureImage()
 {
 	int32_t texWidth, texHeight, texChannels;
-	stbi_uc* pixels = stbi_load("../source/assets/textures/texture.jpg", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+	stbi_uc* pixels = stbi_load("../source/assets/textures/chalet.jpg", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
 	VkDeviceSize imageSize = texWidth * texHeight * 4;
 
 	if (!pixels)
@@ -755,7 +758,16 @@ void VkRenderBackend::CreateTextureSampler()
 
 void VkRenderBackend::CreateVertexBuffer()
 {
-	VkDeviceSize bufferSize = sizeof(m_models[0].vertices[0]) * m_models[0].vertices.size();
+	std::vector<Vertex> vertices;
+	for (auto& model : m_models)
+	{
+		for (int i = 0; i < model.getNumVertices(); ++i)
+		{
+			vertices.push_back(model.getVertices()[i]);
+		}
+	}
+
+	VkDeviceSize bufferSize = sizeof(Vertex) * vertices.size();
 
 	VkBuffer stagingBuffer;
 	VkDeviceMemory stagingBufferMemory;
@@ -763,7 +775,7 @@ void VkRenderBackend::CreateVertexBuffer()
 
 	void* data;
 	vkMapMemory(m_context.device, stagingBufferMemory, 0, bufferSize, 0, &data);
-	memcpy(data, m_models[0].vertices.data(), (size_t)bufferSize);
+	memcpy(data, vertices.data(), (size_t)bufferSize);
 	vkUnmapMemory(m_context.device, stagingBufferMemory);
 
 	CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_vertexBuffer, m_vertexBufferMemory);
@@ -776,15 +788,24 @@ void VkRenderBackend::CreateVertexBuffer()
 
 void VkRenderBackend::CreateIndexBuffer()
 {
-	VkDeviceSize bufferSize = sizeof(m_models[0].indices[0]) * m_models[0].indices.size();
+	std::vector<uint32_t> indicies;
+	for (auto& model : m_models)
+	{
+		for (int i = 0; i < model.getNumIndices(); ++i)
+		{
+			indicies.push_back(model.getIndices()[i]);
+		}
+	}
 
+	VkDeviceSize bufferSize = sizeof(uint32_t) * indicies.size();
+	
 	VkBuffer stagingBuffer;
 	VkDeviceMemory stagingBufferMemory;
 	CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
 
 	void* data;
 	vkMapMemory(m_context.device, stagingBufferMemory, 0, bufferSize, 0, &data);
-	memcpy(data, m_models[0].indices.data(), (size_t)bufferSize);
+	memcpy(data, indicies.data(), (size_t)bufferSize);
 	vkUnmapMemory(m_context.device, stagingBufferMemory);
 
 	CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_indexBuffer, m_indexBufferMemory);
@@ -911,10 +932,15 @@ void VkRenderBackend::CreateCommandBuffers()
 			VkBuffer vertexBuffers[] = {m_vertexBuffer};
 			VkDeviceSize offsets[] = {0};
 			vkCmdBindVertexBuffers(m_commandBuffers[i], 0, 1, vertexBuffers, offsets);
-			vkCmdBindIndexBuffer(m_commandBuffers[i], m_indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+			vkCmdBindIndexBuffer(m_commandBuffers[i], m_indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 			vkCmdBindDescriptorSets(m_commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1, &m_descriptorSet, 0, nullptr);
+			uint32_t indexCount;
+			for (auto& model : m_models)
+			{
+				vkCmdDrawIndexed(m_commandBuffers[i], static_cast<uint32_t>(model.getNumIndices()), 1, indexCount, 0, 0);
 
-			vkCmdDrawIndexed(m_commandBuffers[i], static_cast<uint32_t>(m_models[0].indices.size()), 1, 0, 0, 0);
+				indexCount += model.getNumIndices();
+			}
 
 		vkCmdEndRenderPass(m_commandBuffers[i]);
 

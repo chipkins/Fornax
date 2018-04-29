@@ -33,7 +33,7 @@
                     ]
                   },
                   {
-                    "compileFlags": "-g   -std=gnu++11",
+                    "compileFlags": "-g -Wall -std=c++11",
                     "includePath": [
                       {
                         "path": "/home/chris/Documents/VS-Code_Projects/Fornax/include/VulkanSDK/include"
