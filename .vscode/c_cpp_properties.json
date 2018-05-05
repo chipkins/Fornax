@@ -37,6 +37,7 @@
                 "${workspaceRoot}/include/glfw-3.2.1/include",
                 "${workspaceRoot}/include/glm-0.9.8.5",
                 "${workspaceRoot}/include/stb",
+                "${workspaceRoot}/include/gli",
                 "${workspaceRoot}/include/tinyobjloader"
             ],
             "defines": [],
@@ -67,6 +68,7 @@
                 "${workspaceRoot}/include/glfw-3.2.1/include",
                 "${workspaceRoot}/include/glm-0.9.8.5",
                 "${workspaceRoot}/include/stb",
+                "${workspaceRoot}/include/gli",
                 "${workspaceRoot}/include/tinyobjloader"
             ],
             "defines": [

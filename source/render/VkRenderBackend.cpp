@@ -4,8 +4,9 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
+// #define STB_IMAGE_IMPLEMENTATION
+// #include "stb_image.h"
+#include <gli/gli.hpp>
 
 #include <iostream>
 #include <fstream>
@@ -178,7 +179,7 @@ void VkRenderBackend::RequestFrameRender()
 	vkQueuePresentKHR(m_context.presentQueue, &presentInfo);
 }
 
-void VkRenderBackend::UpdateUniformBuffer()
+void VkRenderBackend::UpdateUniformBuffer(Camera camera)
 {
 	static auto startTime = std::chrono::high_resolution_clock::now();
 
@@ -186,11 +187,12 @@ void VkRenderBackend::UpdateUniformBuffer()
 	float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
 	UniformBufferObject ubo = {};
-	//ubo.model = glm::mat4(1.0f);
+
 	ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-	ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-	ubo.proj = glm::perspective(glm::radians(45.0f), m_window.width / (float)m_window.height, 0.1f, 10.0f);
-	ubo.proj[1][1] *= -1;
+	//ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+	ubo.view = camera.getView();
+	//ubo.proj = glm::perspective(glm::radians(45.0f), m_window.width / (float)m_window.height, 0.1f, 10.0f);
+	ubo.proj = camera.getProj();
 
 	void* data;
 	vkMapMemory(m_context.device, m_uniformBufferMemory, 0, sizeof(ubo), 0, &data);
@@ -934,7 +936,7 @@ void VkRenderBackend::CreateCommandBuffers()
 			vkCmdBindVertexBuffers(m_commandBuffers[i], 0, 1, vertexBuffers, offsets);
 			vkCmdBindIndexBuffer(m_commandBuffers[i], m_indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 			vkCmdBindDescriptorSets(m_commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1, &m_descriptorSet, 0, nullptr);
-			uint32_t indexCount;
+			uint32_t indexCount = 0;
 			for (auto& model : m_models)
 			{
 				vkCmdDrawIndexed(m_commandBuffers[i], static_cast<uint32_t>(model.getNumIndices()), 1, indexCount, 0, 0);

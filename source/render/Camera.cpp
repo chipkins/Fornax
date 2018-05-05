@@ -10,6 +10,7 @@ Camera::Camera(float width, float height)
 
 	m_view = glm::lookAt(m_pos, m_pos + m_dir, m_up);
 	m_proj = glm::perspective(glm::radians(45.0f), (float)width / height, 0.1f, 10.0f);
+	m_proj[1][1] *= -1;
 }
 
 Camera::~Camera()
@@ -18,5 +19,35 @@ Camera::~Camera()
 
 void Camera::Update()
 {
-	
+	m_dir = glm::rotateX(m_dir, m_rot.x);
+	m_dir = glm::rotateY(m_dir, m_rot.y);
+	m_dir = glm::rotateZ(m_dir, m_rot.z);
+
+	m_view = glm::lookAt(m_pos, m_pos + m_dir, glm::vec3(0, 1, 0));
+}
+
+void Camera::Move(glm::vec3 dir, float speed)
+{
+	m_dir = m_dir * speed;
+}
+
+void Camera::MoveYAxis(float speed)
+{
+	m_pos.y += speed;
+}
+
+void Camera::ResizeCamera(float width, float height)
+{
+	m_proj = glm::perspective(glm::radians(45.0f), width / height, 0.1f, 10.0f);
+}
+
+void Camera::MouseRotate(float x, float y)
+{
+	if (x > -1 && x < 1) m_rot.x = x;
+	else if (x < -1)     m_rot.x = -1;
+	else if (x > 1)      m_rot.x = 1;
+
+	if (y > -1 && y < 1) m_rot.y = y;
+	else if (y < -1)     m_rot.y = -1;
+	else if (y > 1)      m_rot.y = 1;
 }

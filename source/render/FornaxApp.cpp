@@ -1,45 +1,80 @@
 #include "FornaxApp.h"
 
+double mouseX, mouseY;
+double prevMouseX, prevMouseY;
+
 static void onWindowResized(GLFWwindow* window, int width, int height)
 {
-	VkRenderBackend* renderer = reinterpret_cast<VkRenderBackend*>(glfwGetWindowUserPointer(window));
-	renderer->RecreateSwapchain();
+	auto* app = reinterpret_cast<FornaxApp*>(glfwGetWindowUserPointer(window));
+	app->m_renderer->RecreateSwapchain();
+	app->m_camera.ResizeCamera(width, height);
+}
+
+static void onKeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
+{
+	auto* app = reinterpret_cast<FornaxApp*>(glfwGetWindowUserPointer(window));
+
+	float moverate = 0.25f;
+
+	if (key == GLFW_KEY_W && action == GLFW_PRESS)
+		app->m_camera.Move(glm::vec3(0, 0, 1), moverate);
+	if (key == GLFW_KEY_S && action == GLFW_PRESS)
+		app->m_camera.Move(glm::vec3(0, 0, -1), moverate);
+	if (key == GLFW_KEY_D && action == GLFW_PRESS)
+		app->m_camera.Move(glm::vec3(1, 0, 0), moverate);
+	if (key == GLFW_KEY_A && action == GLFW_PRESS)
+		app->m_camera.Move(glm::vec3(-1, 0, 0), moverate);
+}
+
+static void onMouseCallback(GLFWwindow* window, int button, int action, int mods)
+{
+	auto* app = reinterpret_cast<FornaxApp*>(glfwGetWindowUserPointer(window));
+
+	if (button == GLFW_MOUSE_BUTTON_LEFT)
+		app->m_camera.MouseRotate((mouseY - prevMouseY)*0.00125, (mouseX - prevMouseY)*0.00125);
+
+	glfwGetCursorPos(window, &prevMouseX, &prevMouseY);
 }
 
 FornaxApp::FornaxApp()
 {
-	renderer = new VkRenderBackend();
-}
-
-FornaxApp::~FornaxApp()
-{
-	delete renderer;
-}
-
-void FornaxApp::Run()
-{
-	if (window == nullptr)
+	if (m_window == nullptr)
 	{
 		CreateWindow();
 	}
 
-	while (!glfwWindowShouldClose(window))
+	m_renderer = new VkRenderBackend();
+
+	int width, height;
+	glfwGetWindowSize(m_window, &width, &height);
+	m_camera = Camera(width, height);
+}
+
+FornaxApp::~FornaxApp()
+{
+	delete m_renderer;
+}
+
+void FornaxApp::Run()
+{
+	while (!glfwWindowShouldClose(m_window))
 	{
 		glfwPollEvents();
-		renderer->UpdateUniformBuffer();
-		renderer->RequestFrameRender();
+		m_camera.Update();
+		m_renderer->UpdateUniformBuffer(m_camera);
+		m_renderer->RequestFrameRender();
 	}
 
-	renderer->WaitForDrawFinish();
+	m_renderer->WaitForDrawFinish();
 
 	Cleanup();
 }
 
 void FornaxApp::Cleanup()
 {
-	renderer->Cleanup();
+	m_renderer->Cleanup();
 
-	glfwDestroyWindow(window);
+	glfwDestroyWindow(m_window);
 	glfwTerminate();
 }
 
@@ -50,10 +85,13 @@ void FornaxApp::CreateWindow()
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 	glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 
-	window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
+	m_window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
 
-	glfwSetWindowUserPointer(window, renderer);
-	glfwSetWindowSizeCallback(window, onWindowResized);
+	glfwSetWindowUserPointer(m_window, this);
+	glfwSetWindowSizeCallback(m_window, onWindowResized);
 
-	renderer->Init(window);
+	glfwSetMouseButtonCallback(m_window, onMouseCallback);
+	glfwSetKeyCallback(m_window, onKeyCallback);
+
+	m_renderer->Init(m_window);
 }

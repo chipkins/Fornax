@@ -13,9 +13,11 @@ public:
 
 	void Run();
 
-private:
-	GLFWwindow* window = nullptr;
-	VkRenderBackend* renderer;
+//private:
+	GLFWwindow* m_window = nullptr;
+	VkRenderBackend* m_renderer;
+
+	Camera m_camera;
 
 	void Cleanup();
 	void CreateWindow();

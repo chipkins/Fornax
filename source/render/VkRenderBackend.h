@@ -2,6 +2,7 @@
 
 #include "../PrecompiledHeader.h"
 #include "Model.h"
+#include "Camera.h"
 
 #ifdef NDEBUG
 	const bool c_enableValidationLayers = false;
@@ -67,7 +68,7 @@ public:
 
 	void RequestFrameRender();
 
-	void UpdateUniformBuffer();
+	void UpdateUniformBuffer(Camera camera);
 
 	void WaitForDrawFinish();
 

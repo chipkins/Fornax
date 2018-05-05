@@ -10,8 +10,9 @@ else()
 	set(GLSL_VALIDATOR "${CMAKE_SOURCE_DIR}/include/VulkanSDK/x86_64/bin/glslangValidator")
 endif()
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_BUILD_TYPE Debug)
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
@@ -50,6 +51,7 @@ include_directories(
 	${CMAKE_SOURCE_DIR}/include/VulkanSDK/include
 	${CMAKE_SOURCE_DIR}/include/glfw-3.2.1/include
 	${CMAKE_SOURCE_DIR}/include/glm-0.9.8.5
+	${CMAKE_SOURCE_DIR}/include/gli
 	${CMAKE_SOURCE_DIR}/include/stb
 	${CMAKE_SOURCE_DIR}/include/tinyobjloader
 )
