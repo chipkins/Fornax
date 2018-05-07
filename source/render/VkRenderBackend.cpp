@@ -4,9 +4,8 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-// #define STB_IMAGE_IMPLEMENTATION
-// #include "stb_image.h"
-#include <gli/gli.hpp>
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
 
 #include <iostream>
 #include <fstream>
@@ -81,7 +80,7 @@ void VkRenderBackend::Init(GLFWwindow* window)
 	glfwGetWindowSize(window, &m_window.width, &m_window.height);
 
 	m_models.emplace_back();
-	m_models[0].LoadModel("../source/assets/models/chalet.obj");
+	m_models[0].LoadModel("../source/assets/models/cube.obj");
 
 	CreateInstance();
 	SetupDebugCallback();
@@ -193,6 +192,7 @@ void VkRenderBackend::UpdateUniformBuffer(Camera camera)
 	ubo.view = camera.getView();
 	//ubo.proj = glm::perspective(glm::radians(45.0f), m_window.width / (float)m_window.height, 0.1f, 10.0f);
 	ubo.proj = camera.getProj();
+	//ubo.proj[1][1] *= -1;
 
 	void* data;
 	vkMapMemory(m_context.device, m_uniformBufferMemory, 0, sizeof(ubo), 0, &data);
@@ -698,7 +698,7 @@ void VkRenderBackend::CreateDepthResources()
 void VkRenderBackend::CreateTextureImage()
 {
 	int32_t texWidth, texHeight, texChannels;
-	stbi_uc* pixels = stbi_load("../source/assets/textures/chalet.jpg", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+	stbi_uc* pixels = stbi_load("../source/assets/textures/texture.jpg", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
 	VkDeviceSize imageSize = texWidth * texHeight * 4;
 
 	if (!pixels)

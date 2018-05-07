@@ -37,7 +37,6 @@
                 "${workspaceRoot}/include/glfw-3.2.1/include",
                 "${workspaceRoot}/include/glm-0.9.8.5",
                 "${workspaceRoot}/include/stb",
-                "${workspaceRoot}/include/gli",
                 "${workspaceRoot}/include/tinyobjloader"
             ],
             "defines": [],
@@ -50,7 +49,12 @@
                     "/usr/lib64/gcc/x86_64-solus-linux/7.3.0/include",
                     "/usr/lib64/gcc/x86_64-solus-linux/7.3.0/include-fixed",
                     "/usr/include",
-                    "${workspaceRoot}"
+                    "${workspaceRoot}",
+                    "${workspaceRoot}/include/VulkanSDK/x86_64/include",
+                    "${workspaceRoot}/include/glfw-3.2.1/include",
+                    "${workspaceRoot}/include/glm-0.9.8.5",
+                    "${workspaceRoot}/include/stb",
+                    "${workspaceRoot}/include/tinyobjloader"
                 ],
                 "limitSymbolsToIncludedHeaders": true,
                 "databaseFilename": ""
@@ -68,7 +72,6 @@
                 "${workspaceRoot}/include/glfw-3.2.1/include",
                 "${workspaceRoot}/include/glm-0.9.8.5",
                 "${workspaceRoot}/include/stb",
-                "${workspaceRoot}/include/gli",
                 "${workspaceRoot}/include/tinyobjloader"
             ],
             "defines": [
@@ -80,7 +83,12 @@
             "browse": {
                 "path": [
                     "C:/Program Files (x86)/Microsoft Visual Studio 14.0/VC/include/*",
-                    "${workspaceRoot}"
+                    "${workspaceRoot}",
+                    "${workspaceRoot}/include/VulkanSDK/x86_64/include",
+                    "${workspaceRoot}/include/glfw-3.2.1/include",
+                    "${workspaceRoot}/include/glm-0.9.8.5",
+                    "${workspaceRoot}/include/stb",
+                    "${workspaceRoot}/include/tinyobjloader"
                 ],
                 "limitSymbolsToIncludedHeaders": true,
                 "databaseFilename": ""

@@ -3,9 +3,9 @@
 
 Camera::Camera(float width, float height)
 {
-	m_pos = glm::vec3(0.0f, 0.5f, -5.0f);
-	m_dir = glm::vec3(0.0f, 0.0f, 1.0f);
-	m_up = glm::vec3(0.0f, -1.0f, 0.0f);
+	m_pos = glm::vec3(2.0f, 2.0f, 2.0f);
+	m_dir = glm::vec3(-2.0f, -2.0f, -2.0f);
+	m_up = glm::vec3(0.0f, 1.0f, 0.0f);
 	m_rot = glm::vec3(0.0f, 0.0f, 0.0f);
 
 	m_view = glm::lookAt(m_pos, m_pos + m_dir, m_up);
@@ -21,14 +21,15 @@ void Camera::Update()
 {
 	m_dir = glm::rotateX(m_dir, m_rot.x);
 	m_dir = glm::rotateY(m_dir, m_rot.y);
-	m_dir = glm::rotateZ(m_dir, m_rot.z);
 
-	m_view = glm::lookAt(m_pos, m_pos + m_dir, glm::vec3(0, 1, 0));
+	m_rot = glm::vec3(0);
+
+	m_view = glm::lookAt(m_pos, m_pos + m_dir, m_up);
 }
 
 void Camera::Move(glm::vec3 dir, float speed)
 {
-	m_dir = m_dir * speed;
+	m_pos += dir * speed;
 }
 
 void Camera::MoveYAxis(float speed)

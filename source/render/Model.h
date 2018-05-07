@@ -1,3 +1,5 @@
+#pragma once
+
 #include "../PrecompiledHeader.h"
 
 struct Vertex
