@@ -1,6 +1,6 @@
 #include <iostream>
 
-#include "render/FornaxApp.h"
+#include "FornaxApp.h"
 #include "render/VkRenderBackend.h"
 
 int main()
@@ -13,6 +13,7 @@ int main()
 	catch (const std::runtime_error& e)
 	{
 		std::cerr << e.what() << std::endl;
+		std::getchar();
 		return EXIT_FAILURE;
 	}
 

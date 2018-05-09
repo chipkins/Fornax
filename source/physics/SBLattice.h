@@ -8,8 +8,11 @@ class SBLattice
 {
 public:
 	SBLattice();
-	SBLattice(const Model& m, float width, float height, int x, int y, float k, float d);
+	SBLattice(Model& m, float width, float height, int x, int y, float k, float d);
 	~SBLattice();
+
+	void Update(float dt);
+	void SetNetForce(glm::vec3 force) { externalForce = force; }
 
 private:
 	int dimensionsX, dimensionsY;
@@ -22,4 +25,6 @@ private:
 	
 	float coefficient;
 	float dampening;
+
+	glm::vec3 externalForce;
 };

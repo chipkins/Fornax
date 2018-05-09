@@ -68,11 +68,13 @@ public:
 
 	void RequestFrameRender();
 
-	void UpdateUniformBuffer(Camera camera);
+	void UpdateUniformBuffer(Camera camera, float dt);
 
 	void WaitForDrawFinish();
 
 	void RecreateSwapchain();
+
+	std::vector<Model> GetModelList() { return m_models; }
 
 private:
 	VkInstance m_instance;

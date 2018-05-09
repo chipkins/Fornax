@@ -1,8 +1,11 @@
 #include "FornaxApp.h"
 
+#include <chrono>
+
 double mouseX, mouseY;
 double prevMouseX, prevMouseY;
-bool l_buttonHeld = false;
+bool l_buttonHeld, r_buttonHeld;
+glm::vec3 externalForce = glm::vec3(0);
 
 static void onWindowResized(GLFWwindow* window, int width, int height)
 {
@@ -38,6 +41,13 @@ static void onMouseCallback(GLFWwindow* window, int button, int action, int mods
 		if (action == GLFW_RELEASE)
 			l_buttonHeld = false;
 	}
+	if (button == GLFW_MOUSE_BUTTON_RIGHT)
+	{
+		if (action == GLFW_PRESS)
+			r_buttonHeld = true;
+		if (action == GLFW_RELEASE)
+			r_buttonHeld = false;
+	}
 }
 
 FornaxApp::FornaxApp()
@@ -52,6 +62,8 @@ FornaxApp::FornaxApp()
 	int width, height;
 	glfwGetWindowSize(m_window, &width, &height);
 	m_camera = Camera(width, height);
+	Model model = m_renderer->GetModelList()[0];
+	m_softbody = new SBLattice(model, 0.01, 0.01, 100, 100, 100.0f, 0.75f);
 }
 
 FornaxApp::~FornaxApp()
@@ -67,17 +79,32 @@ void FornaxApp::Run()
 
 		glfwGetCursorPos(m_window, &mouseX, &mouseY);
 		if (l_buttonHeld)
+			m_softbody->SetNetForce(glm::vec3(mouseX - prevMouseX, mouseY - prevMouseY, 0));
+		if (r_buttonHeld)
 			m_camera.MouseRotate((mouseY - prevMouseY)*0.00125, (mouseX - prevMouseX)*0.00125);
 		glfwGetCursorPos(m_window, &prevMouseX, &prevMouseY);
 
-		m_camera.Update();
-		m_renderer->UpdateUniformBuffer(m_camera);
-		m_renderer->RequestFrameRender();
+		UpdateAndDraw();
 	}
 
 	m_renderer->WaitForDrawFinish();
 
 	Cleanup();
+}
+
+void FornaxApp::UpdateAndDraw()
+{
+	static auto startTime = std::chrono::high_resolution_clock::now();
+	auto currentTime = std::chrono::high_resolution_clock::now();
+	frameTime = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+	dt = frameTime - prevFrameTime;
+
+	m_camera.Update();
+	m_softbody->Update(dt);
+	m_renderer->UpdateUniformBuffer(m_camera, frameTime);
+	m_renderer->RequestFrameRender();
+
+	prevFrameTime = frameTime;
 }
 
 void FornaxApp::Cleanup()
