@@ -63,7 +63,7 @@ FornaxApp::FornaxApp()
 	glfwGetWindowSize(m_window, &width, &height);
 	m_camera = Camera(width, height);
 	Model model = m_renderer->GetModelList()[0];
-	m_softbody = new SBLattice(model, 0.01, 0.01, 100, 100, 100.0f, 0.75f);
+	m_softbody = new SBLattice(model, 0.25f, 0.25f, 11, 11, 25.0f, 0.5f);
 }
 
 FornaxApp::~FornaxApp()
@@ -101,7 +101,7 @@ void FornaxApp::UpdateAndDraw()
 
 	m_camera.Update();
 	m_softbody->Update(dt);
-	m_renderer->UpdateUniformBuffer(m_camera, frameTime);
+	m_renderer->UpdateUniformBuffer(m_camera, m_softbody->deformVecs, frameTime);
 	m_renderer->RequestFrameRender();
 
 	prevFrameTime = frameTime;

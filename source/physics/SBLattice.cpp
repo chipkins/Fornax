@@ -11,8 +11,10 @@ SBLattice::SBLattice()
 	restHeight = restWidth = 0;
 }
 
-SBLattice::SBLattice(Model& m, float width, float height, int x, int y, float k, float d)
+SBLattice::SBLattice(Model m, float width, float height, int x, int y, float k, float d)
 {
+	mesh = m;
+
 	dimensionsX = x;
 	dimensionsY = y;
 
@@ -92,6 +94,7 @@ void SBLattice::Update(float dt)
 		{
 			int numVertex = i * dimensionsY + j;
 			bodies[i][j].ApplyForce(dt);
+			deformVecs[numVertex] = bodies[i][j].position;
 		}
 	}
 }

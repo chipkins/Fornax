@@ -58,6 +58,7 @@ struct UniformBufferObject
 	glm::mat4 model;
 	glm::mat4 view;
 	glm::mat4 proj;
+	glm::vec3 deformVec[121];
 };
 
 class VkRenderBackend 
@@ -68,7 +69,7 @@ public:
 
 	void RequestFrameRender();
 
-	void UpdateUniformBuffer(Camera camera, float dt);
+	void UpdateUniformBuffer(Camera camera, glm::vec3* deformVecs, float dt);
 
 	void WaitForDrawFinish();
 

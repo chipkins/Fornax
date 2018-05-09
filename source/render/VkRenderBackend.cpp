@@ -80,7 +80,7 @@ void VkRenderBackend::Init(GLFWwindow* window)
 	glfwGetWindowSize(window, &m_window.width, &m_window.height);
 
 	m_models.emplace_back();
-	m_models[0].LoadModel("../source/assets/models/cube.obj");
+	m_models[0].LoadModel("../source/assets/models/quad.obj");
 
 	CreateInstance();
 	SetupDebugCallback();
@@ -178,16 +178,22 @@ void VkRenderBackend::RequestFrameRender()
 	vkQueuePresentKHR(m_context.presentQueue, &presentInfo);
 }
 
-void VkRenderBackend::UpdateUniformBuffer(Camera camera, float dt)
+void VkRenderBackend::UpdateUniformBuffer(Camera camera, glm::vec3* deformVecs, float dt)
 {
 	UniformBufferObject ubo = {};
 
-	ubo.model = glm::rotate(glm::mat4(1.0f), dt * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+	//ubo.model = glm::rotate(glm::mat4(1.0f), dt * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+	ubo.model = glm::mat4();
 	//ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 	ubo.view = camera.getView();
 	//ubo.proj = glm::perspective(glm::radians(45.0f), m_window.width / (float)m_window.height, 0.1f, 10.0f);
 	ubo.proj = camera.getProj();
 	//ubo.proj[1][1] *= -1;
+
+	for (int i = 0; i < m_models[0].getNumVertices(); ++i)
+	{
+		ubo.deformVec[i] = deformVecs[i];
+	}
 
 	void* data;
 	vkMapMemory(m_context.device, m_uniformBufferMemory, 0, sizeof(ubo), 0, &data);
@@ -490,7 +496,7 @@ void VkRenderBackend::CreateDescriptorSetLayout()
 
 void VkRenderBackend::CreateGraphicsPipeline()
 {
-	auto vertShaderCode = ReadFile("shaders/shader.vert.spv");
+	auto vertShaderCode = ReadFile("shaders/softbody.vert.spv");
 	auto fragShaderCode = ReadFile("shaders/shader.frag.spv");
 
 	VkShaderModule vertShaderModule = CreateShaderModule(vertShaderCode);
