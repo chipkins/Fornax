@@ -31,7 +31,7 @@ public:
 	} m_plane;
 
 	float frameTime;
-	float prevFrameTime;
+	float prevFrameTime = 0;
 	float startTime;
 	float dt;
 	const float physicsStep = 0.12;
