@@ -81,6 +81,8 @@ void VkRenderBackend::Init(GLFWwindow* window)
 
 	m_models.emplace_back();
 	m_models[0].LoadModel("../source/assets/models/quad.obj");
+	//m_models.emplace_back();
+	//m_models[1].LoadModel("../source/assets/models/quad.obj");
 
 	CreateInstance();
 	SetupDebugCallback();

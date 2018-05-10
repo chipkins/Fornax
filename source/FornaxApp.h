@@ -1,6 +1,7 @@
 #pragma once
 
 #include "render/VkRenderBackend.h"
+#include "physics/PhysicsBackend.h"
 #include "physics/SBLattice.h"
 
 class FornaxApp
@@ -18,10 +19,16 @@ public:
 //private:
 	GLFWwindow* m_window = nullptr;
 	VkRenderBackend* m_renderer;
+	PhysicsBackend   m_physics;
+	
 
 	Camera m_camera;
 
 	SBLattice* m_softbody;
+	struct {
+		glm::vec3 origin;
+		glm::vec3 normal;
+	} m_plane;
 
 	float frameTime;
 	float prevFrameTime;

@@ -17,9 +17,9 @@ void RigidBody::ApplyForce(float dt)
 {
 	acceleration = invMass * netForce;
 
-	glm::vec3 vdt = velocity * dt;
-	glm::vec3 aT2 = 0.5f * acceleration * powf(dt, 2);
-	position += vdt + aT2;
+	glm::vec3 vDt = velocity * dt;
+	glm::vec3 aDt2 = 0.5f * acceleration * powf(dt, 2);
+	position += vDt + aDt2;
 
 	velocity += acceleration * dt + invMass * netImpulse;
 

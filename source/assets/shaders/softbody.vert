@@ -22,9 +22,9 @@ layout(location = 1) out vec2 fragTexCoord;
 
 void main()
 {
-	vec3 alteredPosition = ubo.deformVec[gl_VertexIndex];
+	vec3 alteredPosition = position - ubo.deformVec[gl_VertexIndex];
 
 	gl_Position = ubo.proj * ubo.view * ubo.model * vec4(alteredPosition, 1.0);
-	fragColor = color;
+	fragColor = position;
 	fragTexCoord = texCoord;
 }

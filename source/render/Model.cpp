@@ -1,6 +1,7 @@
 #include "Model.h"
 
 #include <iostream>
+#include <algorithm>
 #include <unordered_map>
 
 #define TINYOBJLOADER_IMPLEMENTATION
@@ -18,7 +19,7 @@ void Model::LoadModel(const char* modelFile)
 		throw std::runtime_error(err);
 	}
 
-	std::unordered_map<Vertex, uint32_t> uniqueVertices = {};
+	std::map<int, Vertex> uniqueVertices = {};
 
 	for (const auto& shape : shapes)
 	{
@@ -36,13 +37,16 @@ void Model::LoadModel(const char* modelFile)
 			};
 			vertex.color = {1.0f, 1.0f, 1.0f};
 			
-			if (uniqueVertices.count(vertex) == 0)
+			if (uniqueVertices.count(index.vertex_index) == 0)
 			{
-				uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
-				vertices.push_back(vertex);
+				uniqueVertices[index.vertex_index] = vertex;
 			}
 
-			indices.push_back(uniqueVertices[vertex]);
+			indices.push_back(index.vertex_index);
 		}
+	}
+	for (int i = 0; i < uniqueVertices.size(); ++i)
+	{
+		vertices.push_back(uniqueVertices[i]);
 	}
 }

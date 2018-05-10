@@ -1,5 +1,6 @@
 #include "SBLattice.h"
 #include <cstdio>
+#include <iostream>
 
 SBLattice::SBLattice()
 {
@@ -62,13 +63,17 @@ void SBLattice::Update(float dt)
 				magnitude = glm::length(displacement);
 				bodies[i][j].netForce += coefficient * (magnitude - restHeight) * direction - bodies[i][j].velocity * dampening;
 			}
+			else 
+				bodies[i][j].netForce += externalForce;
 			if (i < dimensionsY - 1)
 			{
 				displacement = bodies[i+1][j].position - bodies[i][j].position;
 				direction = glm::normalize(displacement);
 				magnitude = glm::length(displacement);
-				bodies[i][j].netForce += coefficient * (magnitude - restHeight) * direction - bodies[i][j].velocity * dampening;
+				bodies[i][j].netForce -= coefficient * (magnitude - restHeight) * direction - bodies[i][j].velocity * dampening;
 			}
+			else 
+				bodies[i][j].netForce += externalForce;
 			if (j > 0)
 			{
 				displacement = bodies[i][j-1].position - bodies[i][j].position;
@@ -76,6 +81,8 @@ void SBLattice::Update(float dt)
 				magnitude = glm::length(displacement);
 				bodies[i][j].netForce += coefficient * (magnitude - restWidth) * direction - bodies[i][j].velocity * dampening;
 			}
+			else 
+				bodies[i][j].netForce += externalForce;
 			if (j < dimensionsX - 1)
 			{
 				displacement = bodies[i][j+1].position - bodies[i][j].position;
@@ -83,7 +90,7 @@ void SBLattice::Update(float dt)
 				magnitude = glm::length(displacement);
 				bodies[i][j].netForce += coefficient * (magnitude - restWidth) * direction - bodies[i][j].velocity * dampening;
 			}
-			if (i == 0)
+			else 
 				bodies[i][j].netForce += externalForce;
 		}
 	}
@@ -94,7 +101,9 @@ void SBLattice::Update(float dt)
 		{
 			int numVertex = i * dimensionsY + j;
 			bodies[i][j].ApplyForce(dt);
-			deformVecs[numVertex] = bodies[i][j].position;
+			glm::vec3 rigidPos = bodies[i][j].position;
+			glm::vec3 meshPos = mesh.getVertices()[numVertex].pos;
+			deformVecs[numVertex] = rigidPos - meshPos;
 		}
 	}
 }
