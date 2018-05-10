@@ -70,7 +70,7 @@ void SBLattice::Update(float dt)
 				displacement = bodies[i+1][j].position - bodies[i][j].position;
 				direction = glm::normalize(displacement);
 				magnitude = glm::length(displacement);
-				bodies[i][j].netForce -= coefficient * (magnitude - restHeight) * direction - bodies[i][j].velocity * dampening;
+				bodies[i][j].netForce += coefficient * (magnitude - restHeight) * direction - bodies[i][j].velocity * dampening;
 			}
 			else 
 				bodies[i][j].netForce += externalForce;
