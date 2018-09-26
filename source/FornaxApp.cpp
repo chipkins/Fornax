@@ -2,9 +2,11 @@
 
 #include <chrono>
 #include <iostream>
+#include <unordered_map>
 
 double mouseX, mouseY;
 double prevMouseX, prevMouseY;
+std::unordered_map<int32_t, bool> heldKeys;
 bool l_buttonHeld, r_buttonHeld;
 glm::vec3 externalForce = glm::vec3(0);
 
@@ -19,20 +21,53 @@ static void onKeyCallback(GLFWwindow* window, int key, int scancode, int action,
 {
 	auto* app = reinterpret_cast<FornaxApp*>(glfwGetWindowUserPointer(window));
 
-	float moverate = 0.25f;
+	if (key == GLFW_KEY_W)
+	{
+		if (action == GLFW_PRESS)
+			heldKeys[key] = true;
+		else if (action == GLFW_RELEASE)
+			heldKeys[key] = false;
+	}
 
-	if (key == GLFW_KEY_W && action == GLFW_PRESS)
-		app->m_camera.Move(glm::vec3(0, 0, -1.0f), moverate);
-	if (key == GLFW_KEY_S && action == GLFW_PRESS)
-		app->m_camera.Move(glm::vec3(0, 0, 1.0f), moverate);
-	if (key == GLFW_KEY_D && action == GLFW_PRESS)
-		app->m_camera.Move(glm::vec3(1.0f, 0, 0), moverate);
-	if (key == GLFW_KEY_A && action == GLFW_PRESS)
-		app->m_camera.Move(glm::vec3(-1.0f, 0, 0), moverate);
-	if (key == GLFW_KEY_LEFT_CONTROL && action == GLFW_PRESS)
-		app->m_camera.Move(glm::vec3(0, 1.0f, 0), moverate);
-	if (key == GLFW_KEY_LEFT_ALT && action == GLFW_PRESS)
-		app->m_camera.Move(glm::vec3(0, -1.0f, 0), moverate);
+	if (key == GLFW_KEY_S)
+	{
+		if (action == GLFW_PRESS)
+			heldKeys[key] = true;
+		else if (action == GLFW_RELEASE)
+			heldKeys[key] = false;
+	}
+
+	if (key == GLFW_KEY_D)
+	{
+		if (action == GLFW_PRESS)
+			heldKeys[key] = true;
+		else if (action == GLFW_RELEASE)
+			heldKeys[key] = false;
+	}
+
+	if (key == GLFW_KEY_A)
+	{
+		if (action == GLFW_PRESS)
+			heldKeys[key] = true;
+		else if (action == GLFW_RELEASE)
+			heldKeys[key] = false;
+	}
+
+	if (key == GLFW_KEY_LEFT_CONTROL)
+	{
+		if (action == GLFW_PRESS)
+			heldKeys[key] = true;
+		else if (action == GLFW_RELEASE)
+			heldKeys[key] = false;
+	}
+
+	if (key == GLFW_KEY_LEFT_ALT)
+	{
+		if (action == GLFW_PRESS)
+			heldKeys[key] = true;
+		else if (action == GLFW_RELEASE)
+			heldKeys[key] = false;
+	}
 
 	if (key == GLFW_KEY_ESCAPE)
 		glfwSetWindowShouldClose(window, 1);
@@ -42,18 +77,18 @@ static void onMouseCallback(GLFWwindow* window, int button, int action, int mods
 {
 	auto* app = reinterpret_cast<FornaxApp*>(glfwGetWindowUserPointer(window));
 
-	if (button == GLFW_MOUSE_BUTTON_LEFT)
+	if (button == GLFW_MOUSE_BUTTON_1)
 	{
 		if (action == GLFW_PRESS)
-			l_buttonHeld = true;
-		if (action == GLFW_RELEASE)
+			r_buttonHeld = true;
+		else if (action == GLFW_RELEASE)
 			l_buttonHeld = false;
 	}
 	if (button == GLFW_MOUSE_BUTTON_RIGHT)
 	{
 		if (action == GLFW_PRESS)
 			r_buttonHeld = true;
-		if (action == GLFW_RELEASE)
+		else if (action == GLFW_RELEASE)
 			r_buttonHeld = false;
 	}
 }
@@ -108,6 +143,20 @@ void FornaxApp::Run()
 			m_softbody->SetNetForce(glm::vec3((mouseX - prevMouseX)*0.25, (mouseY - prevMouseY)*0.25, 0));
 		if (r_buttonHeld)
 			m_camera.MouseRotate((mouseY - prevMouseY)*0.00125, (mouseX - prevMouseX)*0.00125);
+		
+		if (heldKeys[GLFW_KEY_W])
+			m_camera.Move(glm::vec3(0, 0, -1.0f), moverate);
+		if (heldKeys[GLFW_KEY_S])
+			m_camera.Move(glm::vec3(0, 0, 1.0f), moverate);
+		if (heldKeys[GLFW_KEY_D])
+			m_camera.Move(glm::vec3(1.0f, 0, 0), moverate);
+		if (heldKeys[GLFW_KEY_A])
+			m_camera.Move(glm::vec3(-1.0f, 0, 0), moverate);
+		if (heldKeys[GLFW_KEY_LEFT_CONTROL])
+			m_camera.MoveYAxis(-moverate);
+		if (heldKeys[GLFW_KEY_LEFT_ALT])
+			m_camera.MoveYAxis(moverate);
+
 		glfwGetCursorPos(m_window, &prevMouseX, &prevMouseY);
 
 		UpdateAndDraw();

@@ -35,6 +35,7 @@ public:
 	float startTime;
 	float dt;
 	const float physicsStep = 0.12;
+	float moverate = 0.01f;
 
 	void Cleanup();
 	void CreateWindow();
