@@ -498,7 +498,7 @@ void VkRenderBackend::CreateDescriptorSetLayout()
 
 void VkRenderBackend::CreateGraphicsPipeline()
 {
-	auto vertShaderCode = ReadFile("shaders/softbody.vert.spv");
+	auto vertShaderCode = ReadFile("shaders/shader.vert.spv");
 	auto fragShaderCode = ReadFile("shaders/shader.frag.spv");
 
 	VkShaderModule vertShaderModule = CreateShaderModule(vertShaderCode);

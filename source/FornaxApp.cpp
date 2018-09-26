@@ -58,6 +58,11 @@ static void onMouseCallback(GLFWwindow* window, int button, int action, int mods
 	}
 }
 
+static void onErrorCallback(int error, const char* description)
+{
+	puts(description);
+}
+
 FornaxApp::FornaxApp()
 {
 	m_renderer = new VkRenderBackend();
@@ -89,6 +94,7 @@ FornaxApp::FornaxApp()
 FornaxApp::~FornaxApp()
 {
 	delete m_renderer;
+	getchar();
 }
 
 void FornaxApp::Run()
@@ -147,7 +153,12 @@ void FornaxApp::Cleanup()
 
 void FornaxApp::CreateWindow()
 {
-	glfwInit();
+	glfwSetErrorCallback(onErrorCallback);
+
+	if (!glfwInit()) 
+	{ 
+		throw std::runtime_error("failed to initialize glfw");
+	}
 
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 	glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);

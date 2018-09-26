@@ -47,5 +47,6 @@
 		"typeinfo": "cpp",
 		"utility": "cpp",
 		"valarray": "cpp"
-	}
+	},
+	"cmake.configureOnOpen": false
 }
