@@ -21,5 +21,5 @@ void PhysicsBackend::ResolveCollision(RigidBody* point, glm::vec3 normal)
 	float j = -vN;
 	j *= point->mass;
 	glm::vec3 impulse = j * normal;
-	point->netImpulse += impulse * 0.01f;
+	point->netImpulse += impulse * 0.1f;
 }

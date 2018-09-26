@@ -76,7 +76,7 @@ FornaxApp::FornaxApp()
 	glfwGetWindowSize(m_window, &width, &height);
 	m_camera = Camera(width, height);
 	Model model = m_renderer->GetModelList()[0];
-	m_softbody = new SBLattice(model, 0.25f, 0.25f, 11, 11, 25.0f, 0.5f);
+	m_softbody = new SBLattice(model, 0.25f, 0.25f, 11, 11, 25.0f, 0.75f);
 	m_plane.origin = glm::vec3(0,  0.5f, 0);
 	m_plane.normal = glm::vec3(0, -1.0f, 0);
 
@@ -105,7 +105,7 @@ void FornaxApp::Run()
 
 		glfwGetCursorPos(m_window, &mouseX, &mouseY);
 		if (l_buttonHeld)
-			m_softbody->SetNetForce(glm::vec3(mouseX - prevMouseX, mouseY - prevMouseY, 0));
+			m_softbody->SetNetForce(glm::vec3((mouseX - prevMouseX)*0.25, (mouseY - prevMouseY)*0.25, 0));
 		if (r_buttonHeld)
 			m_camera.MouseRotate((mouseY - prevMouseY)*0.00125, (mouseX - prevMouseX)*0.00125);
 		glfwGetCursorPos(m_window, &prevMouseX, &prevMouseY);
