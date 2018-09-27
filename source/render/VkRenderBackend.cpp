@@ -113,7 +113,11 @@ void VkRenderBackend::Cleanup()
 {
 	CleanupSwapchain();
 
-	vkDestroySemaphore(m_context.device, m_imageAvailableSemaphore, nullptr);
+	vkDestroyImageView(m_context.device, m_offScreenFrameBuffer.color.view, nullptr);
+	vkDestroyImage(m_context.device, m_offScreenFrameBuffer.color.image, nullptr);
+	vkFreeMemory(m_context.device, m_offScreenFrameBuffer.color.memory, nullptr);
+
+	/*vkDestroySemaphore(m_context.device, m_imageAvailableSemaphore, nullptr);
 	vkDestroySemaphore(m_context.device, m_renderFinishedSemaphore, nullptr);
 	vkDestroyDescriptorPool(m_context.device, m_descriptorPool, nullptr);
 	vkDestroyDescriptorSetLayout(m_context.device, m_descriptorSetLayout, nullptr);
@@ -127,7 +131,7 @@ void VkRenderBackend::Cleanup()
 	vkFreeMemory(m_context.device, m_vertexBufferMemory, nullptr);
 	vkDestroyBuffer(m_context.device, m_indexBuffer, nullptr);
 	vkFreeMemory(m_context.device, m_indexBufferMemory, nullptr);
-	vkDestroyCommandPool(m_context.device, m_commandPool, nullptr);
+	vkDestroyCommandPool(m_context.device, m_commandPool, nullptr);*/
 	vkDestroyDevice(m_context.device, nullptr);
 	if (c_enableValidationLayers)
 	{

@@ -3,6 +3,7 @@
 #include "../PrecompiledHeader.h"
 #include "Model.h"
 #include "Camera.h"
+#include "VulkanBuffer.h"
 
 #ifdef NDEBUG
 	const bool c_enableValidationLayers = false;
@@ -53,13 +54,20 @@ struct VkWindow
 	int32_t width, height;
 };
 
-struct UniformBufferObject
+struct UBOScene
 {
 	glm::mat4 model;
 	glm::mat4 view;
 	glm::mat4 proj;
 	glm::vec3 deformVec[121];
-};
+} uboScene;
+
+struct UBOBlur
+{
+	float radialBlurScale = 0.35f;
+	float radialBlurStrength = 0.75;
+	glm::vec2 radialOrigin = glm::vec2(0.5f, 0.5f);
+} uboBlur;
 
 class VkRenderBackend 
 {
@@ -89,26 +97,63 @@ private:
 	VkExtent2D                 m_swapchainExtent;
 	std::vector<VkFramebuffer> m_swapchainFramebuffers;
 
-	VkPipelineLayout      m_pipelineLayout;
-	VkPipeline            m_graphicsPipeline;
+	struct {
+		Buffer blur;
+		Buffer scene;
+	} uniformBuffers;
+
+	struct {
+		VkPipeline blur;
+		VkPipeline color;
+		VkPipeline offscreen;
+	} m_pipelines;
+
+	struct {
+		VkPipelineLayout blur;
+		VkPipelineLayout scene;
+	} m_pipelineLayouts;
+
+	struct FrameBufferAttachment {
+		VkImage image;
+		VkDeviceMemory memory;
+		VkImageView view;
+	};
+
+	struct FrameBuffer {
+		int32_t width, height;
+		VkFramebuffer frameBuffer;
+		FrameBufferAttachment color, depth;
+		VkRenderPass renderPass;
+		VkSampler sampler;
+		VkDescriptorImageInfo descriptor;
+		VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
+		VkSemaphore semaphore = VK_NULL_HANDLE;
+	} m_offScreenFrameBuffer;
+
+	//VkPipelineLayout      m_pipelineLayout;
+	//VkPipeline            m_graphicsPipeline;
 
 	VkCommandPool                m_commandPool;
 	std::vector<VkCommandBuffer> m_commandBuffers;
 
-	VkImage        m_depthImage;
+	/*VkImage        m_depthImage;
 	VkDeviceMemory m_depthImageMemory;
 	VkImageView    m_depthImageView;
 	VkImage        m_textureImage;
 	VkImageView    m_textureImageView;
 	VkDeviceMemory m_textureImageMemory;
-	VkSampler      m_textureSampler;
+	VkSampler      m_textureSampler;*/
 
-	VkBuffer       m_vertexBuffer;
+	/*VkBuffer       m_vertexBuffer;
 	VkDeviceMemory m_vertexBufferMemory;
 	VkBuffer       m_indexBuffer;
 	VkDeviceMemory m_indexBufferMemory;
 	VkBuffer       m_uniformBuffer;
-	VkDeviceMemory m_uniformBufferMemory;
+	VkDeviceMemory m_uniformBufferMemory;*/
+	VkBuffer       m_sceneBuffer;
+	VkDeviceMemory m_sceneMemory;
+	VkBuffer       m_blurBuffer;
+	VkDeviceMemory m_blurMemory;
 
 	VkDescriptorSetLayout m_descriptorSetLayout;
 	VkDescriptorPool      m_descriptorPool;
@@ -116,6 +161,7 @@ private:
 
 	VkSemaphore m_imageAvailableSemaphore;
 	VkSemaphore m_renderFinishedSemaphore;
+	VkSemaphore m_offscreenSemaphore = VK_NULL_HANDLE;
 	
 	VkDebugReportCallbackEXT m_callback;
 
