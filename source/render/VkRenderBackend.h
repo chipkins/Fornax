@@ -100,18 +100,27 @@ private:
 	struct {
 		Buffer blur;
 		Buffer scene;
-	} uniformBuffers;
+	} m_uniformBuffers;
 
 	struct {
 		VkPipeline blur;
-		VkPipeline color;
-		VkPipeline offscreen;
+		VkPipeline scene;
 	} m_pipelines;
 
 	struct {
 		VkPipelineLayout blur;
 		VkPipelineLayout scene;
 	} m_pipelineLayouts;
+
+	struct {
+		VkDescriptorSet blur;
+		VkDescriptorSet scene;
+	} m_descriptorSets;
+
+	struct {
+		VkDescriptorSetLayout blur;
+		VkDescriptorSetLayout scene;
+	} m_descriptorSetLayouts;
 
 	struct FrameBufferAttachment {
 		VkImage image;
@@ -138,11 +147,11 @@ private:
 
 	/*VkImage        m_depthImage;
 	VkDeviceMemory m_depthImageMemory;
-	VkImageView    m_depthImageView;
+	VkImageView    m_depthImageView;*/
 	VkImage        m_textureImage;
 	VkImageView    m_textureImageView;
 	VkDeviceMemory m_textureImageMemory;
-	VkSampler      m_textureSampler;*/
+	//VkSampler      m_textureSampler;
 
 	/*VkBuffer       m_vertexBuffer;
 	VkDeviceMemory m_vertexBufferMemory;
@@ -150,18 +159,13 @@ private:
 	VkDeviceMemory m_indexBufferMemory;
 	VkBuffer       m_uniformBuffer;
 	VkDeviceMemory m_uniformBufferMemory;*/
-	VkBuffer       m_sceneBuffer;
-	VkDeviceMemory m_sceneMemory;
-	VkBuffer       m_blurBuffer;
-	VkDeviceMemory m_blurMemory;
 
-	VkDescriptorSetLayout m_descriptorSetLayout;
+	/*VkDescriptorSetLayout m_descriptorSetLayout;
 	VkDescriptorPool      m_descriptorPool;
-	VkDescriptorSet       m_descriptorSet;
+	VkDescriptorSet       m_descriptorSet;*/
 
 	VkSemaphore m_imageAvailableSemaphore;
 	VkSemaphore m_renderFinishedSemaphore;
-	VkSemaphore m_offscreenSemaphore = VK_NULL_HANDLE;
 	
 	VkDebugReportCallbackEXT m_callback;
 

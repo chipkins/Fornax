@@ -5,60 +5,63 @@
 
 #include "vulkan\vulkan.h"
 
-struct Buffer
+namespace vk
 {
-	VkDevice device;
-	VkBuffer buffer = VK_NULL_HANDLE;
-	VkDeviceMemory memory = VK_NULL_HANDLE;
-	VkDescriptorBufferInfo descriptor;
-	VkDeviceSize size = 0;
-	VkDeviceSize alignment = 0;
-	void* mapped = nullptr;
-
-	VkBufferUsageFlags usageFlags;
-	VkMemoryPropertyFlags memoryPropertyFlags;
-
-	VkResult map(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0)
+	struct Buffer
 	{
-		return vkMapMemory(device, memory, offset, size, 0, &mapped);
-	}
+		VkDevice device;
+		VkBuffer buffer = VK_NULL_HANDLE;
+		VkDeviceMemory memory = VK_NULL_HANDLE;
+		VkDescriptorBufferInfo descriptor;
+		VkDeviceSize size = 0;
+		VkDeviceSize alignment = 0;
+		void* mapped = nullptr;
 
-	void unmap()
-	{
-		if (mapped)
+		VkBufferUsageFlags usageFlags;
+		VkMemoryPropertyFlags memoryPropertyFlags;
+
+		VkResult map(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0)
 		{
-			vkUnmapMemory(device, memory);
-			mapped = nullptr;
+			return vkMapMemory(device, memory, offset, size, 0, &mapped);
 		}
-	}
 
-	VkResult bind(VkDeviceSize offset = 0)
-	{
-		return vkBindBufferMemory(device, buffer, memory, offset);
-	}
-
-	void setupDescriptor(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0)
-	{
-		descriptor.offset = offset;
-		descriptor.buffer = buffer;
-		descriptor.range = size;
-	}
-
-	void copyTo(void* data, VkDeviceSize size)
-	{
-		assert(mapped);
-		memcpy(mapped, data, size);
-	}
-
-	void destroy()
-	{
-		if (buffer)
+		void unmap()
 		{
-			vkDestroyBuffer(device, buffer, nullptr);
+			if (mapped)
+			{
+				vkUnmapMemory(device, memory);
+				mapped = nullptr;
+			}
 		}
-		if (memory)
+
+		VkResult bind(VkDeviceSize offset = 0)
 		{
-			vkFreeMemory(device, memory, nullptr);
+			return vkBindBufferMemory(device, buffer, memory, offset);
 		}
-	}
-};
+
+		void setupDescriptor(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0)
+		{
+			descriptor.offset = offset;
+			descriptor.buffer = buffer;
+			descriptor.range = size;
+		}
+
+		void copyTo(void* data, VkDeviceSize size)
+		{
+			assert(mapped);
+			memcpy(mapped, data, size);
+		}
+
+		void destroy()
+		{
+			if (buffer)
+			{
+				vkDestroyBuffer(device, buffer, nullptr);
+			}
+			if (memory)
+			{
+				vkFreeMemory(device, memory, nullptr);
+			}
+		}
+	};
+}

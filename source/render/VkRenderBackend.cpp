@@ -117,6 +117,29 @@ void VkRenderBackend::Cleanup()
 	vkDestroyImage(m_context.device, m_offScreenFrameBuffer.color.image, nullptr);
 	vkFreeMemory(m_context.device, m_offScreenFrameBuffer.color.memory, nullptr);
 
+	vkDestroyImageView(m_context.device, m_offScreenFrameBuffer.depth.view, nullptr);
+	vkDestroyImage(m_context.device, m_offScreenFrameBuffer.depth.image, nullptr);
+	vkFreeMemory(m_context.device, m_offScreenFrameBuffer.depth.memory, nullptr);
+
+	vkDestroyRenderPass(m_context.device, m_offScreenFrameBuffer.renderPass, nullptr);
+	vkDestroySampler(m_context.device, m_offScreenFrameBuffer.sampler, nullptr);
+	vkDestroyFramebuffer(m_context.device, m_offScreenFrameBuffer.frameBuffer, nullptr);
+
+	vkDestroyPipeline(m_context.device, m_pipelines.blur, nullptr);
+	vkDestroyPipeline(m_context.device, m_pipelines.scene, nullptr);
+
+	vkDestroyPipelineLayout(m_context.device, m_pipelineLayouts.blur, nullptr);
+	vkDestroyPipelineLayout(m_context.device, m_pipelineLayouts.scene, nullptr);
+
+	vkDestroyDescriptorSetLayout(m_context.device, m_descriptorSetLayouts.blur, nullptr);
+	vkDestroyDescriptorSetLayout(m_context.device, m_descriptorSetLayouts.scene, nullptr);
+
+	m_uniformBuffers.blur.destroy();
+	m_uniformBuffers.scene.destroy();
+
+	vkFreeCommandBuffers(m_context.device, m_commandPool, 1, &m_offScreenFrameBuffer.commandBuffer);
+	vkDestroySemaphore(m_context.device, m_offScreenFrameBuffer.semaphore, nullptr);
+
 	/*vkDestroySemaphore(m_context.device, m_imageAvailableSemaphore, nullptr);
 	vkDestroySemaphore(m_context.device, m_renderFinishedSemaphore, nullptr);
 	vkDestroyDescriptorPool(m_context.device, m_descriptorPool, nullptr);
@@ -157,6 +180,28 @@ void VkRenderBackend::RequestFrameRender()
 	submitInfo.pWaitSemaphores = waitSemaphores;
 	submitInfo.pWaitDstStageMask = waitStages;
 	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &m_offScreenFrameBuffer.commandBuffer;
+
+	VkSemaphore signalSemaphores[] = { m_offScreenFrameBuffer.semaphore };
+	submitInfo.signalSemaphoreCount = 1;
+	submitInfo.pSignalSemaphores = signalSemaphores;
+
+	VkResult result = vkQueueSubmit(m_context.graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+	if (result != VK_SUCCESS)
+	{
+		std::cout << result << std::endl;
+		throw std::runtime_error("failed to submit draw command buffer!");
+	}
+
+	VkSubmitInfo submitInfo = {};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+	VkSemaphore waitSemaphores[] = { m_offScreenFrameBuffer.semaphore };
+	VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+	submitInfo.waitSemaphoreCount = 1;
+	submitInfo.pWaitSemaphores = waitSemaphores;
+	submitInfo.pWaitDstStageMask = waitStages;
+	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &m_commandBuffers[imageIndex];
 
 	VkSemaphore signalSemaphores[] = { m_renderFinishedSemaphore };
@@ -186,25 +231,23 @@ void VkRenderBackend::RequestFrameRender()
 
 void VkRenderBackend::UpdateUniformBuffer(Camera camera, glm::vec3* deformVecs, float dt)
 {
-	UniformBufferObject ubo = {};
-
 	//ubo.model = glm::rotate(glm::mat4(1.0f), dt * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-	ubo.model = glm::mat4();
+	uboScene.model = glm::mat4();
 	//ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-	ubo.view = camera.getView();
+	uboScene.view = camera.getView();
 	//ubo.proj = glm::perspective(glm::radians(45.0f), m_window.width / (float)m_window.height, 0.1f, 10.0f);
-	ubo.proj = camera.getProj();
+	uboScene.proj = camera.getProj();
 	//ubo.proj[1][1] *= -1;
 
 	for (int i = 0; i < m_models[0].getNumVertices(); ++i)
 	{
-		ubo.deformVec[i] = deformVecs[i];
+		uboScene.deformVec[i] = deformVecs[i];
 	}
 
 	void* data;
-	vkMapMemory(m_context.device, m_uniformBufferMemory, 0, sizeof(ubo), 0, &data);
-	memcpy(data, &ubo, sizeof(ubo));
-	vkUnmapMemory(m_context.device, m_uniformBufferMemory);
+	vkMapMemory(m_context.device, m_uniformBuffers.scene.memory, 0, sizeof(UBOScene), 0, &data);
+	memcpy(data, &uboScene, sizeof(UBOScene));
+	vkUnmapMemory(m_context.device, m_uniformBuffers.scene.memory);
 }
 
 void VkRenderBackend::WaitForDrawFinish()
@@ -494,7 +537,12 @@ void VkRenderBackend::CreateDescriptorSetLayout()
 	layoutInfo.bindingCount = 2;
 	layoutInfo.pBindings = bindings.data();
 
-	if (vkCreateDescriptorSetLayout(m_context.device, &layoutInfo, nullptr, &m_descriptorSetLayout) != VK_SUCCESS)
+	if (vkCreateDescriptorSetLayout(m_context.device, &layoutInfo, nullptr, &m_descriptorSetLayouts.scene) != VK_SUCCESS)
+	{
+		throw std::runtime_error("failed to create descriptor set layout!");
+	}
+
+	if (vkCreateDescriptorSetLayout(m_context.device, &layoutInfo, nullptr, &m_descriptorSetLayouts.blur) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to create descriptor set layout!");
 	}
@@ -603,11 +651,11 @@ void VkRenderBackend::CreateGraphicsPipeline()
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
 	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	pipelineLayoutInfo.setLayoutCount = 1;
-	pipelineLayoutInfo.pSetLayouts = &m_descriptorSetLayout;
+	pipelineLayoutInfo.pSetLayouts = &m_descriptorSetLayouts.scene;
 	pipelineLayoutInfo.pushConstantRangeCount = 0;
 	pipelineLayoutInfo.pPushConstantRanges = 0;
 
-	if (vkCreatePipelineLayout(m_context.device, &pipelineLayoutInfo, nullptr, &m_pipelineLayout) != VK_SUCCESS)
+	if (vkCreatePipelineLayout(m_context.device, &pipelineLayoutInfo, nullptr, &m_pipelineLayouts.scene) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to create pipeline layout!");
 	}
@@ -636,13 +684,13 @@ void VkRenderBackend::CreateGraphicsPipeline()
 	pipelineInfo.pDepthStencilState = &depthStencil;
 	pipelineInfo.pColorBlendState = &colorBlending;
 	pipelineInfo.pDynamicState = nullptr;
-	pipelineInfo.layout = m_pipelineLayout;
+	pipelineInfo.layout = m_pipelineLayouts.scene;
 	pipelineInfo.renderPass = m_context.renderPass;
 	pipelineInfo.subpass = 0;
 	pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 	pipelineInfo.basePipelineIndex = -1;
 
-	if (vkCreateGraphicsPipelines(m_context.device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_graphicsPipeline) != VK_SUCCESS)
+	if (vkCreateGraphicsPipelines(m_context.device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_pipelines.scene) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to create graphics pipeline");
 	}
@@ -659,7 +707,7 @@ void VkRenderBackend::CreateFrameBuffers()
 	{
 		std::array<VkImageView, 2> attachments = {
 			m_swapchainImageViews[i],
-			m_depthImageView
+			m_offScreenFrameBuffer.depth.view
 		};
 
 		VkFramebufferCreateInfo framebufferInfo = {};
@@ -695,11 +743,11 @@ void VkRenderBackend::CreateDepthResources()
 {
 	m_context.depthFormat = FindDepthFormat();
 
-	CreateImage(m_swapchainExtent.width, m_swapchainExtent.height, m_context.depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_depthImage, m_depthImageMemory);
+	CreateImage(m_swapchainExtent.width, m_swapchainExtent.height, m_context.depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_offScreenFrameBuffer.depth.image, m_offScreenFrameBuffer.depth.memory);
 
-	m_depthImageView = CreateImageView(m_depthImage, m_context.depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
+	 m_offScreenFrameBuffer.depth.view = CreateImageView(m_offScreenFrameBuffer.depth.image, m_context.depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
 
-	TransitionImageLayout(m_depthImage, m_context.depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+	TransitionImageLayout(m_offScreenFrameBuffer.depth.image, m_context.depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 }
 
 void VkRenderBackend::CreateTextureImage()
