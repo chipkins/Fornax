@@ -10,6 +10,7 @@
 #include "VulkanInitializers.h"
 #include "VulkanBuffer.h"
 #include "VulkanDevice.h"
+#include "VulkanSwapchain.h"
 
 namespace vk
 {

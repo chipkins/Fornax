@@ -4,14 +4,6 @@
 #include "Model.h"
 #include "Camera.h"
 
-const std::vector<const char*> c_validationLayers = {
-	"VK_LAYER_LUNARG_standard_validation"
-};
-
-const std::vector<const char*> c_deviceExtensions = {
-	VK_KHR_SWAPCHAIN_EXTENSION_NAME
-};
-
 class VkRenderBackend 
 {
 public:

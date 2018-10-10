@@ -9,13 +9,14 @@
 
 namespace vk
 {
-	class SwapChain
+	class Swapchain
 	{
 	private:
 		VkInstance       instance;
 		VkDevice         logicalDevice;
 		VkPhysicalDevice physicalDevice;
 		VkSurfaceKHR     surface;
+
 	public:
 		VkSwapchainKHR swapchain = VK_NULL_HANDLE;
 
@@ -25,6 +26,7 @@ namespace vk
 
 		VkFormat                             colorFormat;
 		VkColorSpaceKHR                      colorSpace;
+		VkExtent2D                           extent;
 		VkSurfaceCapabilitiesKHR             surfaceCapabilities;
 		std::vector<VkSurfaceFormatKHR>      surfaceFormats;
 		std::vector<VkPresentModeKHR>        presentModes;
@@ -33,8 +35,12 @@ namespace vk
 		uint32_t graphicsFamilyIndex = std::numeric_limits<uint32_t>::max();
 		uint32_t presentFamilyIndex  = std::numeric_limits<uint32_t>::max();
 
-		void Create(GLFWwindow* window, bool vsync = false)
+		void Create(GLFWwindow* window, uint32_t graphicsFamilyIndex, uint32_t presentFamilyIndex, bool vsync = false)
 		{
+			// Set respective queue family indices
+			this->graphicsFamilyIndex = graphicsFamilyIndex;
+			this->presentFamilyIndex = presentFamilyIndex;
+
 			VkResult err;
 			VkSwapchainKHR oldSwapchain = swapchain;
 
@@ -75,10 +81,9 @@ namespace vk
 			}
 
 			// Select Swapchain Extent
-			VkExtent2D swapchainExtent = {};
 			if (surfaceCapabilities.currentExtent.width != std::numeric_limits<uint32_t>::max())
 			{
-				swapchainExtent = surfaceCapabilities.currentExtent;
+				extent = surfaceCapabilities.currentExtent;
 			}
 			else
 			{
@@ -90,8 +95,8 @@ namespace vk
 					static_cast<uint32_t>(height)
 				};
 
-				swapchainExtent.width = std::max(surfaceCapabilities.minImageExtent.width, std::min(surfaceCapabilities.maxImageExtent.width, actualExtent.width));
-				swapchainExtent.height = std::max(surfaceCapabilities.minImageExtent.height, std::min(surfaceCapabilities.maxImageExtent.height, actualExtent.height));
+				extent.width = std::max(surfaceCapabilities.minImageExtent.width, std::min(surfaceCapabilities.maxImageExtent.width, actualExtent.width));
+				extent.height = std::max(surfaceCapabilities.minImageExtent.height, std::min(surfaceCapabilities.maxImageExtent.height, actualExtent.height));
 			}
 
 			// Determine number of images
@@ -107,7 +112,7 @@ namespace vk
 			createInfo.minImageCount = imageCount;
 			createInfo.imageFormat = colorFormat;
 			createInfo.imageColorSpace = colorSpace;
-			createInfo.imageExtent = swapchainExtent;
+			createInfo.imageExtent = extent;
 			createInfo.imageArrayLayers = 1;
 			createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
@@ -185,47 +190,6 @@ namespace vk
 			if (err != VK_SUCCESS)
 			{
 				throw std::runtime_error("Cannot create a GLFW window surface.");
-			}
-
-			// Find suitable gaphics and presentation queues
-			uint32_t unassignedQueueValue = std::numeric_limits<uint32_t>::max();
-			graphicsFamilyIndex = unassignedQueueValue;
-			presentFamilyIndex = unassignedQueueValue;
-
-			uint32_t queueCount;
-			vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueCount, nullptr);
-			if (queueCount < 1)
-			{
-				throw std::runtime_error("No Vulkan QueueFamilyProperties found");
-			}
-			queueFamilyProperties.resize(queueCount);
-			vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueCount, queueFamilyProperties.data());
-
-			uint32_t i = 0;
-			for (const auto& queueFamily : queueFamilyProperties)
-			{
-				VkBool32 presentSupport = false;
-				vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, i, surface, &presentSupport);
-
-				if (queueFamily.queueCount > 0 && queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT)
-				{
-					graphicsFamilyIndex = i;
-				}
-				if (queueFamily.queueCount > 0 && presentSupport)
-				{
-					presentFamilyIndex = i;
-				}
-				if (graphicsFamilyIndex != unassignedQueueValue && presentFamilyIndex != unassignedQueueValue)
-				{
-					break;
-				}
-
-				++i;
-			}
-
-			if (graphicsFamilyIndex == unassignedQueueValue && presentFamilyIndex == unassignedQueueValue)
-			{
-				throw std::runtime_error("Cannot find a graphics and/or presenting queue");
 			}
 
 			// Find suitable surface format
