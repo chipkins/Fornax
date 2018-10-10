@@ -1,15 +1,8 @@
 #pragma once
 
-#include "../PrecompiledHeader.h"
+#include "VulkanHeader.h"
 #include "Model.h"
 #include "Camera.h"
-#include "VulkanBuffer.h"
-
-#ifdef NDEBUG
-	const bool c_enableValidationLayers = false;
-#else
-	const bool c_enableValidationLayers = true;
-#endif
 
 const std::vector<const char*> c_validationLayers = {
 	"VK_LAYER_LUNARG_standard_validation"
@@ -18,56 +11,6 @@ const std::vector<const char*> c_validationLayers = {
 const std::vector<const char*> c_deviceExtensions = {
 	VK_KHR_SWAPCHAIN_EXTENSION_NAME
 };
-
-struct GPUInfo
-{
-	VkPhysicalDevice                     physicalDevice;
-	VkPhysicalDeviceProperties           deviceProperties;
-	VkPhysicalDeviceFeatures             deviceFeatures;
-	VkPhysicalDeviceMemoryProperties     memoryProperties;
-	VkSurfaceCapabilitiesKHR             surfaceCapabilities;
-	std::vector<VkSurfaceFormatKHR>      surfaceFormats;
-	std::vector<VkPresentModeKHR>        presentModes;
-	std::vector<VkQueueFamilyProperties> queueFamilyProperties;
-	std::vector<VkExtensionProperties>   extensionProperties;
-};
-
-struct VkContext
-{
-	VkDevice              device;
-	GPUInfo               gpu;
-	int32_t               graphicsFamilyIndex;
-	int32_t               presentFamilyIndex;
-	VkQueue               graphicsQueue;
-	VkQueue               presentQueue;
-	VkFormat              depthFormat;
-	VkRenderPass          renderPass;
-	VkPipelineCache       pipelineCache;
-	VkSampleCountFlagBits sampleCount;
-	bool                  supersampling;
-};
-
-struct VkWindow
-{
-	GLFWwindow*  windowPtr;
-	VkSurfaceKHR surface;
-	int32_t width, height;
-};
-
-struct UBOScene
-{
-	glm::mat4 model;
-	glm::mat4 view;
-	glm::mat4 proj;
-	glm::vec3 deformVec[121];
-} uboScene;
-
-struct UBOBlur
-{
-	float radialBlurScale = 0.35f;
-	float radialBlurStrength = 0.75;
-	glm::vec2 radialOrigin = glm::vec2(0.5f, 0.5f);
-} uboBlur;
 
 class VkRenderBackend 
 {
@@ -86,20 +29,25 @@ public:
 	std::vector<Model> GetModelList() { return m_models; }
 
 private:
-	VkInstance m_instance;
-	VkContext  m_context;
-	VkWindow   m_window;
-	
-	VkSwapchainKHR             m_swapchain;
-	std::vector<VkImage>       m_swapchainImages;
-	std::vector<VkImageView>   m_swapchainImageViews;
-	VkFormat                   m_swapchainImageFormat;
-	VkExtent2D                 m_swapchainExtent;
-	std::vector<VkFramebuffer> m_swapchainFramebuffers;
+
+	struct UBOScene
+	{
+		glm::mat4 model;
+		glm::mat4 view;
+		glm::mat4 proj;
+		glm::vec3 deformVec[121];
+	} uboScene;
+
+	struct UBOBlur
+	{
+		float radialBlurScale = 0.35f;
+		float radialBlurStrength = 0.75;
+		glm::vec2 radialOrigin = glm::vec2(0.5f, 0.5f);
+	} uboBlur;
 
 	struct {
-		Buffer blur;
-		Buffer scene;
+		vk::Buffer blur;
+		vk::Buffer scene;
 	} m_uniformBuffers;
 
 	struct {
@@ -139,51 +87,22 @@ private:
 		VkSemaphore semaphore = VK_NULL_HANDLE;
 	} m_offScreenFrameBuffer;
 
-	//VkPipelineLayout      m_pipelineLayout;
-	//VkPipeline            m_graphicsPipeline;
-
-	VkCommandPool                m_commandPool;
-	std::vector<VkCommandBuffer> m_commandBuffers;
-
-	/*VkImage        m_depthImage;
-	VkDeviceMemory m_depthImageMemory;
-	VkImageView    m_depthImageView;*/
 	VkImage        m_textureImage;
 	VkImageView    m_textureImageView;
 	VkDeviceMemory m_textureImageMemory;
-	//VkSampler      m_textureSampler;
-
-	/*VkBuffer       m_vertexBuffer;
-	VkDeviceMemory m_vertexBufferMemory;
-	VkBuffer       m_indexBuffer;
-	VkDeviceMemory m_indexBufferMemory;
-	VkBuffer       m_uniformBuffer;
-	VkDeviceMemory m_uniformBufferMemory;*/
-
-	/*VkDescriptorSetLayout m_descriptorSetLayout;
-	VkDescriptorPool      m_descriptorPool;
-	VkDescriptorSet       m_descriptorSet;*/
-
-	VkSemaphore m_imageAvailableSemaphore;
-	VkSemaphore m_renderFinishedSemaphore;
+	VkSampler      m_textureSampler;
 	
 	VkDebugReportCallbackEXT m_callback;
 
 	std::vector<Model> m_models;
 
 	// Vulkan Initialization Functions
-	void CreateInstance();
 	void SetupDebugCallback();
-	void CreateSurface();
 	void SelectPhysicalDevice();
 	void CreateLogicalDeviceAndQueues();
-	void CreateSwapchain();
 	void CreateImageViews();
-	void CreateRenderPass();
 	void CreateDescriptorSetLayout();
 	void CreateGraphicsPipeline();
-	void CreateFrameBuffers();
-	void CreateCommandPool();
 	void CreateDepthResources();
 	void CreateTextureImage();
 	void CreateTextureImageView();
@@ -193,7 +112,6 @@ private:
 	void CreateUniformBuffer();
 	void CreateDescriptorPool();
 	void CreateDescriptorSet();
-	void CreateCommandBuffers();
 	void CreateSephamores();
 
 	void CleanupSwapchain();
@@ -201,13 +119,6 @@ private:
 	// Helper Functions
 	bool CheckValidationLayerSupport();
 	std::vector<const char*> GetRequiredExtensions();
-
-	bool IsDeviceSuitable(VkPhysicalDevice device);
-	bool CheckDeviceExtensionSupport(VkPhysicalDevice device);
-
-	void FindQueueFamilies(VkPhysicalDevice device);
-
-	void QuerySwapChainSupport(VkPhysicalDevice device);
 
 	VkSurfaceFormatKHR ChooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
 	VkPresentModeKHR ChooseSwapPresentMode(const std::vector<VkPresentModeKHR> availablePresentModes);

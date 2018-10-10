@@ -1,7 +1,7 @@
 #pragma once
 
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
+#include <vector>
+#include <array>
 
 #define GLM_FORCE_CXX14
 #define GLM_FORCE_RADIANS
@@ -10,6 +10,3 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/hash.hpp>
-
-#include <vector>
-#include <array>

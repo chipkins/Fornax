@@ -1,5 +1,7 @@
 #pragma once
 
+#include <GLFW/glfw3.h>
+
 #include "render/VkRenderBackend.h"
 #include "physics/PhysicsBackend.h"
 #include "physics/SBLattice.h"
