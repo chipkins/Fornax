@@ -1,8 +1,12 @@
 #pragma once
 
 #include "VulkanHeader.h"
-#include "Model.h"
-#include "Camera.h"
+#include "VulkanInitializers.h"
+#include "VulkanBuffer.h"
+#include "VulkanDevice.h"
+#include "VulkanSwapchain.h"
+#include "VulkanModel.h"
+#include "../core/Camera.h"
 
 class VkRenderBackend 
 {
@@ -18,7 +22,7 @@ public:
 
 	void RecreateSwapchain();
 
-	std::vector<Model> GetModelList() { return m_models; }
+	std::vector<vk::Model> GetModelList() { return m_models; }
 
 private:
 
@@ -86,7 +90,7 @@ private:
 	
 	VkDebugReportCallbackEXT m_callback;
 
-	std::vector<Model> m_models;
+	std::vector<vk::Model> m_models;
 
 	// Vulkan Initialization Functions
 	void SetupDebugCallback();

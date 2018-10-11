@@ -1,6 +1,10 @@
 #pragma once
 
 #include "VulkanHeader.h"
+#include "VulkanInitializers.h"
+#include "VulkanBuffer.h"
+#include "VulkanDevice.h"
+#include "VulkanSwapchain.h"
 
 #ifdef NDEBUG
 const bool c_enableValidationLayers = false;

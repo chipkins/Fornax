@@ -1,9 +1,6 @@
 #pragma once
 
-#include <assert.h>
-#include <cstring>
-
-#include "vulkan\vulkan.h"
+#include "VulkanHeader.h"
 
 namespace vk
 {

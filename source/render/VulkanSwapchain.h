@@ -1,11 +1,6 @@
 #pragma once
 
-#include <vector>
-#include <limits>
-#include <algorithm>
-
-#define GLFW_INCLUDE_VULKAN
-#include "GLFW\glfw3.h"
+#include "VulkanHeader.h"
 
 namespace vk
 {

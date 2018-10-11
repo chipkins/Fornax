@@ -1,16 +1,16 @@
 #pragma once
 
 #include <unordered_map>
+#include <vector>
+#include <limits>
+#include <algorithm>
+#include <assert.h>
+#include <cstring>
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
 #include "../PrecompiledHeader.h"
-
-#include "VulkanInitializers.h"
-#include "VulkanBuffer.h"
-#include "VulkanDevice.h"
-#include "VulkanSwapchain.h"
 
 namespace vk
 {
