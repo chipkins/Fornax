@@ -13,7 +13,7 @@ glm::vec3 externalForce = glm::vec3(0);
 static void onWindowResized(GLFWwindow* window, int width, int height)
 {
 	auto* app = reinterpret_cast<FornaxApp*>(glfwGetWindowUserPointer(window));
-	app->m_renderer->RecreateSwapchain();
+	app->m_renderer->ResizeWindow();
 	app->m_camera.ResizeCamera(width, height);
 }
 
@@ -100,7 +100,8 @@ static void onErrorCallback(int error, const char* description)
 
 FornaxApp::FornaxApp()
 {
-	m_renderer = new VkRenderBackend();
+	std::vector<const char*> enabledExtensions;
+	m_renderer = new VkRenderBackend(enabledExtensions);
 	
 	if (m_window == nullptr)
 	{
@@ -110,7 +111,7 @@ FornaxApp::FornaxApp()
 	int width, height;
 	glfwGetWindowSize(m_window, &width, &height);
 	m_camera = Camera(width, height);
-	Model model = m_renderer->GetModelList()[0];
+	vk::Model model = m_renderer->GetModelList()[0];
 	m_softbody = new SBLattice(model, 0.25f, 0.25f, 11, 11, 25.0f, 0.75f);
 	m_plane.origin = glm::vec3(0,  0.5f, 0);
 	m_plane.normal = glm::vec3(0, -1.0f, 0);
@@ -162,7 +163,7 @@ void FornaxApp::Run()
 		UpdateAndDraw();
 	}
 
-	m_renderer->WaitForDrawFinish();
+	m_renderer->WaitForDrawToFinish();
 
 	Cleanup();
 }
@@ -186,7 +187,7 @@ void FornaxApp::UpdateAndDraw()
 
 	m_camera.Update();
 	m_softbody->Update(dt);
-	m_renderer->UpdateUniformBuffer(m_camera, m_softbody->deformVecs, frameTime);
+	m_renderer->UpdateUniformBuffers(m_camera, m_softbody->deformVecs, frameTime);
 	m_renderer->RequestFrameRender();
 
 	prevFrameTime = frameTime;

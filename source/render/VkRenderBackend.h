@@ -9,6 +9,7 @@
 class VkRenderBackend : public VkRenderBase
 {
 public:
+	VkRenderBackend(std::vector<const char*> enabledExtensions) : VkRenderBase(enabledExtensions) {};
 	virtual void Init(GLFWwindow* window);
 	virtual void Cleanup();
 

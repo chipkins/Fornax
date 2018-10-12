@@ -76,6 +76,7 @@ private:
 	bool CheckValidationLayerSupport();
 
 public:
+	VkRenderBase() {};
 	VkRenderBase(std::vector<const char*> enabledExtensions);
 	void CreateGLFWSurface(GLFWwindow* window);
 	void SelectPhysicalDevice();

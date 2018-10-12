@@ -54,7 +54,7 @@ namespace vk
 				throw std::runtime_error("Cannot obtain surface present modes");
 			}
 			presentModes.resize(presentModeCount);
-			err = vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, glfwWindow->surface, &presentModeCount, presentModes.data);
+			err = vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, glfwWindow->surface, &presentModeCount, presentModes.data());
 			if (err != VK_SUCCESS)
 			{
 				throw std::runtime_error("Cannot obtain surface present modes");

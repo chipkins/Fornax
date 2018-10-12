@@ -1,6 +1,7 @@
 #pragma once
 
 #include "VulkanHeader.h"
+#include "VulkanBuffer.h"
 
 namespace vk
 {
