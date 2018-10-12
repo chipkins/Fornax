@@ -1,26 +1,20 @@
 #pragma once
 
 #include "VulkanHeader.h"
-#include "VulkanInitializers.h"
+#include "VkRenderBase.h"
 #include "VulkanBuffer.h"
-#include "VulkanDevice.h"
-#include "VulkanSwapchain.h"
 #include "VulkanModel.h"
 #include "../core/Camera.h"
 
-class VkRenderBackend 
+class VkRenderBackend : public VkRenderBase
 {
 public:
-	void Init(GLFWwindow* window);
-	void Cleanup();
+	virtual void Init(GLFWwindow* window);
+	virtual void Cleanup();
 
-	void RequestFrameRender();
+	virtual void RequestFrameRender();
 
-	void UpdateUniformBuffer(Camera camera, glm::vec3* deformVecs, float dt);
-
-	void WaitForDrawFinish();
-
-	void RecreateSwapchain();
+	void UpdateUniformBuffers(Camera camera, glm::vec3* deformVecs, float dt);
 
 	std::vector<vk::Model> GetModelList() { return m_models; }
 
@@ -31,7 +25,7 @@ private:
 		glm::mat4 model;
 		glm::mat4 view;
 		glm::mat4 proj;
-		glm::vec3 deformVec[121];
+		//glm::vec3 deformVec[121];
 	} uboScene;
 
 	struct UBOBlur
@@ -88,51 +82,34 @@ private:
 	VkDeviceMemory m_textureImageMemory;
 	VkSampler      m_textureSampler;
 	
-	VkDebugReportCallbackEXT m_callback;
-
 	std::vector<vk::Model> m_models;
+	VkBuffer               m_vertexBuffer;
+	VkDeviceMemory         m_vertexBufferMemory;
+	VkBuffer               m_indexBuffer;
+	VkDeviceMemory         m_indexBufferMemory;
 
 	// Vulkan Initialization Functions
-	void SetupDebugCallback();
-	void SelectPhysicalDevice();
-	void CreateLogicalDeviceAndQueues();
-	void CreateImageViews();
 	void CreateDescriptorSetLayout();
-	void CreateGraphicsPipeline();
-	void CreateDepthResources();
 	void CreateTextureImage();
 	void CreateTextureImageView();
 	void CreateTextureSampler();
 	void CreateVertexBuffer();
 	void CreateIndexBuffer();
-	void CreateUniformBuffer();
-	void CreateDescriptorPool();
-	void CreateDescriptorSet();
-	void CreateSephamores();
 
-	void CleanupSwapchain();
+	// Create a frame buffer attachment
+	//void CreateAttachment(VkFormat format, VkImageUsageFlagBits usage, FrameBufferAttachment *attachment, uint32_t width, uint32_t height);
+	void PrepareOffscreenFramebuffer();
+	void BuildOffscreenCommandBuffer();
+	virtual void BuildCommandBuffers();
+	//void RebuildCommandBuffers();
+	void SetupDescriptorPool();
+	void SetupLayoutsAndDescriptors();
+	void PreparePipelines();
+	void PrepareUniformBuffers();
+	//void SetupLights();
+
+	void Draw();
+	void Prepare();
 
 	// Helper Functions
-	bool CheckValidationLayerSupport();
-	std::vector<const char*> GetRequiredExtensions();
-
-	VkSurfaceFormatKHR ChooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
-	VkPresentModeKHR ChooseSwapPresentMode(const std::vector<VkPresentModeKHR> availablePresentModes);
-	VkExtent2D ChooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
-
-	VkShaderModule CreateShaderModule(const std::vector<char>& code);
-
-	void CreateImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
-	VkImageView CreateImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
-	void TransitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
-	void CopyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
-	void CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
-	void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
-	uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
-	VkFormat FindSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
-	VkFormat FindDepthFormat();
-	bool HasStencilComponent(VkFormat format);
-
-	VkCommandBuffer BeginSingleTimeCommands();
-	void            EndSingleTimeCommands(VkCommandBuffer commandBuffer);
 };

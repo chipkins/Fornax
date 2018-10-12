@@ -64,9 +64,6 @@ namespace std
 
 namespace vk
 {
-	const std::string MODEL_PATH = "../source/assets/models/chalet.obj";
-	const std::string TEXTURE_PATH = "../source/assets/textures/chalet.jpg";
-
 	class Model
 	{
 	public:

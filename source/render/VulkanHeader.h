@@ -14,7 +14,7 @@
 
 namespace vk
 {
-	template <typename T>
+	/*template <typename T>
 	class ResourceList
 	{
 	public:
@@ -123,5 +123,5 @@ namespace vk
 			resources[name] = descriptorSet;
 			return descriptorSet;
 		}
-	};
+	};*/
 }

@@ -48,7 +48,7 @@ namespace vk
 			return cmdBufInheritanceInfo;
 		}
 
-		VkRenderPassBeginInfo RenderPassBegininfo()
+		VkRenderPassBeginInfo RenderPassBeginInfo()
 		{
 			VkRenderPassBeginInfo renderPassBeginInfo = {};
 			renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -211,7 +211,7 @@ namespace vk
 			return descriptorPoolSize;
 		}
 
-		VkDescriptorSetLayoutBinding DescriptorSetLayoutBinding(VkDescriptorType type, VkShaderStageFlags stateFlags, uint32_t binding, uint32_t count)
+		VkDescriptorSetLayoutBinding DescriptorSetLayoutBinding(VkDescriptorType type, VkShaderStageFlags stateFlags, uint32_t binding, uint32_t count = 1)
 		{
 			VkDescriptorSetLayoutBinding setLayoutBinding = {};
 			setLayoutBinding.descriptorType = type;

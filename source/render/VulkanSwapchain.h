@@ -1,6 +1,7 @@
 #pragma once
 
 #include "VulkanHeader.h"
+#include "VulkanWindow.h"
 
 namespace vk
 {
@@ -10,7 +11,6 @@ namespace vk
 		VkInstance       instance;
 		VkDevice         logicalDevice;
 		VkPhysicalDevice physicalDevice;
-		VkSurfaceKHR     surface;
 
 	public:
 		VkSwapchainKHR swapchain = VK_NULL_HANDLE;
@@ -30,7 +30,7 @@ namespace vk
 		uint32_t graphicsFamilyIndex = std::numeric_limits<uint32_t>::max();
 		uint32_t presentFamilyIndex  = std::numeric_limits<uint32_t>::max();
 
-		void Create(GLFWwindow* window, uint32_t graphicsFamilyIndex, uint32_t presentFamilyIndex, bool vsync = false)
+		void Create(Window* glfwWindow, uint32_t graphicsFamilyIndex, uint32_t presentFamilyIndex, bool vsync = false)
 		{
 			// Set respective queue family indices
 			this->graphicsFamilyIndex = graphicsFamilyIndex;
@@ -40,7 +40,7 @@ namespace vk
 			VkSwapchainKHR oldSwapchain = swapchain;
 
 			// Get physical device surface properties and formats
-			err = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface, &surfaceCapabilities);
+			err = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, glfwWindow->surface, &surfaceCapabilities);
 			if (err != VK_SUCCESS)
 			{
 				throw std::runtime_error("Unable to retrieve surface capabilities.");
@@ -48,13 +48,13 @@ namespace vk
 
 			// Get available present modes
 			uint32_t presentModeCount;
-			err = vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &presentModeCount, nullptr);
+			err = vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, glfwWindow->surface, &presentModeCount, nullptr);
 			if (err != VK_SUCCESS || presentModeCount < 1)
 			{
 				throw std::runtime_error("Cannot obtain surface present modes");
 			}
 			presentModes.resize(presentModeCount);
-			err = vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &presentModeCount, presentModes.data);
+			err = vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, glfwWindow->surface, &presentModeCount, presentModes.data);
 			if (err != VK_SUCCESS)
 			{
 				throw std::runtime_error("Cannot obtain surface present modes");
@@ -83,7 +83,7 @@ namespace vk
 			else
 			{
 				int32_t width, height;
-				glfwGetWindowSize(window, &width, &height);
+				glfwGetWindowSize(glfwWindow->windowPtr, &width, &height);
 
 				VkExtent2D actualExtent = {
 					static_cast<uint32_t>(width),
@@ -103,7 +103,7 @@ namespace vk
 
 			VkSwapchainCreateInfoKHR createInfo = {};
 			createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-			createInfo.surface = surface;
+			createInfo.surface = glfwWindow->surface;
 			createInfo.minImageCount = imageCount;
 			createInfo.imageFormat = colorFormat;
 			createInfo.imageColorSpace = colorSpace;
@@ -176,16 +176,10 @@ namespace vk
 			}
 		}
 
-		void InitGLFWSurface(GLFWwindow* window)
+		void ConnectGLFWSurface(VkSurfaceKHR surface)
 		{
 			// Create GLFW window surface
 			VkResult err;
-
-			err = glfwCreateWindowSurface(instance, window, nullptr, &surface);
-			if (err != VK_SUCCESS)
-			{
-				throw std::runtime_error("Cannot create a GLFW window surface.");
-			}
 
 			// Find suitable surface format
 			uint32_t formatCount;
@@ -217,7 +211,7 @@ namespace vk
 			}
 		}
 
-		void Connect(VkInstance instance, VkDevice logicalDevice, VkPhysicalDevice physicalDevice)
+		void ConnectVulkan(VkInstance instance, VkDevice logicalDevice, VkPhysicalDevice physicalDevice)
 		{
 			this->instance = instance;
 			this->logicalDevice = logicalDevice;
@@ -253,13 +247,8 @@ namespace vk
 				{
 					vkDestroyImageView(logicalDevice, view, nullptr);
 				}
-			}
-			if (surface != VK_NULL_HANDLE)
-			{
 				vkDestroySwapchainKHR(logicalDevice, swapchain, nullptr);
-				vkDestroySurfaceKHR(instance, surface, nullptr);
 			}
-			surface = VK_NULL_HANDLE;
 			swapchain = VK_NULL_HANDLE;
 		}
 	};

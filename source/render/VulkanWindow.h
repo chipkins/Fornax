@@ -10,19 +10,19 @@ namespace vk
 		VkSurfaceKHR surface;
 		int32_t width, height;
 
-		Window(GLFWwindow* windowPtr)
+		Window(GLFWwindow* window)
 		{
-			this->windowPtr = windowPtr;
-		}
-
-		~Window()
-		{
-
+			windowPtr = window;
 		}
 
 		VkResult InitSurface(VkInstance instance)
 		{
 			return glfwCreateWindowSurface(instance, windowPtr, nullptr, &surface);
+		}
+
+		void DestroySurface(VkInstance instance)
+		{
+			vkDestroySurfaceKHR(instance, surface, nullptr);
 		}
 	};
 }

@@ -1,17 +1,17 @@
 #pragma once
 
 #include "../PrecompiledHeader.h"
-#include "../render/Model.h"
+#include "../render/VulkanModel.h"
 #include "RigidBody.h"
 
 class SBLattice
 {
 public:
 	SBLattice();
-	SBLattice(Model m, float width, float height, int x, int y, float k, float d);
+	SBLattice(vk::Model m, float width, float height, int x, int y, float k, float d);
 	~SBLattice();
 
-	Model mesh;
+	vk::Model mesh;
 	glm::vec3 deformVecs[121];
 
 	void Update(float dt);

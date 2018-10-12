@@ -7,6 +7,9 @@
 #define TINYOBJLOADER_IMPLEMENTATION
 #include <tiny_obj_loader.h>
 
+const std::string MODEL_PATH = "../source/assets/models/chalet.obj";
+const std::string TEXTURE_PATH = "../source/assets/textures/chalet.jpg";
+
 namespace vk
 {
 	void Model::LoadModel(const char* modelFile)
