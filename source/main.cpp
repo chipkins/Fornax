@@ -1,7 +1,6 @@
 #include <iostream>
 
 #include "FornaxApp.h"
-#include "render/VkRenderBackend.h"
 
 int main()
 {

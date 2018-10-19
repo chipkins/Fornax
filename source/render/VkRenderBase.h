@@ -71,7 +71,7 @@ protected:
 	};
 
 private:
-	VkResult CreateInstance();
+	void CreateInstance();
 	std::vector<const char*> GetRequiredExtensions();
 	bool CheckValidationLayerSupport();
 
@@ -96,7 +96,7 @@ public:
 	void SubmitFrame();
 
 	// Virtual functions that can be overriden
-	virtual ~VkRenderBase();
+	//virtual ~VkRenderBase();
 	virtual void Cleanup();
 	virtual void Init(GLFWwindow* window);
 	virtual void SetupDepthStencil();

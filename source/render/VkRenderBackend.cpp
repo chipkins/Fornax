@@ -28,7 +28,7 @@
 
 void VkRenderBackend::Init(GLFWwindow* window)
 {
-	VkRenderBackend::Init(window);
+	VkRenderBase::Init(window);
 
 	CreateTextureImage();
 	CreateTextureImageView();
@@ -545,8 +545,8 @@ void VkRenderBackend::PreparePipelines()
 	pipelineCreateInfo.pStages = shaderStages.data();
 
 	// Radial blur pipeline
-	shaderStages[0] = LoadShader("../source/assets/shaders/radialblur.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-	shaderStages[1] = LoadShader("../source/assets/shaders/radialblur.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+	shaderStages[0] = LoadShader("shaders/radialblur.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+	shaderStages[1] = LoadShader("shaders/radialblur.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
 	// Empty vertex input state
 	VkPipelineVertexInputStateCreateInfo emptyInputState = vk::initializers::PipelineVertexInputStateCreateInfo();
 	pipelineCreateInfo.pVertexInputState = &emptyInputState;
@@ -563,8 +563,8 @@ void VkRenderBackend::PreparePipelines()
 	vkCreateGraphicsPipelines(m_device->logicalDevice, m_pipelineCache, 1, &pipelineCreateInfo, nullptr, &m_pipelines.blur);
 
 	// Color only pass (offscreen blur base)
-	shaderStages[0] = LoadShader("../source/assets/shaders/radialblur/shader.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-	shaderStages[1] = LoadShader("../source/assets/shaders/radialblur/shader.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+	shaderStages[0] = LoadShader("shaders/shader.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+	shaderStages[1] = LoadShader("shaders/shader.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
 	pipelineCreateInfo.renderPass = m_offScreenFrameBuffer.renderPass;
 	blendAttachmentState.blendEnable = VK_FALSE;
 	depthStencilState.depthWriteEnable = VK_TRUE;
@@ -605,6 +605,8 @@ void VkRenderBackend::RequestFrameRender()
 
 void VkRenderBackend::UpdateUniformBuffers(Camera camera, glm::vec3* deformVecs, float dt)
 {
+	Prepare();
+
 	//ubo.model = glm::rotate(glm::mat4(1.0f), dt * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 	uboScene.model = glm::mat4();
 	//ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
@@ -618,10 +620,9 @@ void VkRenderBackend::UpdateUniformBuffers(Camera camera, glm::vec3* deformVecs,
 		uboScene.deformVec[i] = deformVecs[i];
 	}*/
 
-	void* data;
-	vkMapMemory(m_device->logicalDevice, m_uniformBuffers.scene.memory, 0, sizeof(UBOScene), 0, &data);
-	memcpy(data, &uboScene, sizeof(UBOScene));
-	vkUnmapMemory(m_device->logicalDevice, m_uniformBuffers.scene.memory);
+	m_uniformBuffers.scene.copyTo(&uboScene, sizeof(UBOScene));
+	//memcpy(data, &uboScene, sizeof(UBOScene));
+	m_uniformBuffers.scene.unmap();
 }
 
 #pragma region Vulkan Functions
@@ -828,11 +829,11 @@ void VkRenderBackend::Draw()
 void VkRenderBackend::Prepare()
 {
 	//VkRenderBase::Prepare();
+	SetupDescriptorPool();
 	PrepareOffscreenFramebuffer();
 	PrepareUniformBuffers();
 	SetupLayoutsAndDescriptors();
 	PreparePipelines();
-	SetupDescriptorPool();
 	BuildCommandBuffers();
 	BuildOffscreenCommandBuffer();
 	//prepared = true;

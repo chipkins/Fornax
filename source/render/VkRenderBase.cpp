@@ -137,13 +137,13 @@ void VkRenderBase::Cleanup()
 	vkDestroyInstance(m_instance, nullptr);
 }
 
-VkResult VkRenderBase::CreateInstance()
+void VkRenderBase::CreateInstance()
 {
 	VkResult err;
 
 	if (c_enableValidationLayers && !CheckValidationLayerSupport())
 	{
-		return VK_ERROR_VALIDATION_FAILED_EXT;
+		throw std::runtime_error("validation layers are not supported");
 	}
 
 	VkApplicationInfo appInfo = {};
@@ -155,13 +155,12 @@ VkResult VkRenderBase::CreateInstance()
 	appInfo.apiVersion = VK_API_VERSION_1_0;
 
 	auto requiredExtensions = GetRequiredExtensions();
-	m_deviceExtensions.insert(m_deviceExtensions.end(), requiredExtensions.begin(), requiredExtensions.end());
 
 	VkInstanceCreateInfo createInfo = {};
 	createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 	createInfo.pApplicationInfo = &appInfo;
-	createInfo.enabledExtensionCount = static_cast<uint32_t>(m_deviceExtensions.size());
-	createInfo.ppEnabledExtensionNames = m_deviceExtensions.data();
+	createInfo.enabledExtensionCount = static_cast<uint32_t>(requiredExtensions.size());
+	createInfo.ppEnabledExtensionNames = requiredExtensions.data();
 
 	if (c_enableValidationLayers)
 	{
@@ -175,7 +174,10 @@ VkResult VkRenderBase::CreateInstance()
 
 	err = vkCreateInstance(&createInfo, nullptr, &m_instance);
 
-	return err;
+	if (err != VK_SUCCESS)
+	{
+		throw std::runtime_error("could not create vulkan instance");
+	}
 }
 
 void VkRenderBase::CreateGLFWSurface(GLFWwindow* window)
@@ -512,7 +514,7 @@ VkFormat VkRenderBase::FindSupportedFormat(const std::vector<VkFormat>& candidat
 VkFormat VkRenderBase::FindDepthFormat()
 {
 	return FindSupportedFormat(
-	{ VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT },
+	{ VK_FORMAT_D16_UNORM, VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT },
 		VK_IMAGE_TILING_OPTIMAL,
 		VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
 	);

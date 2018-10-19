@@ -8,7 +8,7 @@ namespace vk
 	class Device
 	{
 	public:
-		VkPhysicalDevice                     physicalDevice;
+		VkPhysicalDevice                     physicalDevice = VK_NULL_HANDLE;
 		VkDevice                             logicalDevice;
 		VkPhysicalDeviceProperties           deviceProperties;
 		VkPhysicalDeviceFeatures             deviceFeatures;
@@ -35,6 +35,10 @@ namespace vk
 					physicalDevice = device;
 					break;
 				}
+			}
+			if (physicalDevice == VK_NULL_HANDLE)
+			{
+				throw std::runtime_error("no suitable physical device found");
 			}
 
 			uint32_t extensionCount;
@@ -67,9 +71,9 @@ namespace vk
 	private:
 		bool IsDeviceSuitable(VkPhysicalDevice device, VkSurfaceKHR surface, std::vector<const char*> deviceExtensions)
 		{
-			vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memoryProperties);
-			vkGetPhysicalDeviceProperties(physicalDevice, &deviceProperties);
-			vkGetPhysicalDeviceFeatures(physicalDevice, &deviceFeatures);
+			vkGetPhysicalDeviceMemoryProperties(device, &memoryProperties);
+			vkGetPhysicalDeviceProperties(device, &deviceProperties);
+			vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
 
 			bool isDiscrete = deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
 
@@ -79,19 +83,19 @@ namespace vk
 			queueFamilyIndices.present = unassignedQueueValue;
 
 			uint32_t queueCount;
-			vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueCount, nullptr);
+			vkGetPhysicalDeviceQueueFamilyProperties(device, &queueCount, nullptr);
 			if (queueCount < 1)
 			{
 				throw std::runtime_error("No Vulkan QueueFamilyProperties found");
 			}
 			queueFamilyProperties.resize(queueCount);
-			vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueCount, queueFamilyProperties.data());
+			vkGetPhysicalDeviceQueueFamilyProperties(device, &queueCount, queueFamilyProperties.data());
 
 			uint32_t i = 0;
 			for (const auto& queueFamily : queueFamilyProperties)
 			{
 				VkBool32 presentSupport = false;
-				vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, i, surface, &presentSupport);
+				vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &presentSupport);
 
 				if (queueFamily.queueCount > 0 && queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT)
 				{
@@ -109,7 +113,7 @@ namespace vk
 				++i;
 			}
 
-			bool queueFamiliesFound = (queueFamilyIndices.graphics == unassignedQueueValue) && (queueFamilyIndices.present == unassignedQueueValue);
+			bool queueFamiliesFound = (queueFamilyIndices.graphics != unassignedQueueValue) && (queueFamilyIndices.present != unassignedQueueValue);
 
 			// Check if all required device extensions are supported
 			bool extensionsSupported = CheckDeviceExtensionsSupported(device, deviceExtensions);
@@ -200,7 +204,7 @@ namespace vk
 		{
 			for (uint32_t i = 0; i < memoryProperties.memoryTypeCount; ++i)
 			{
-				if ((typeBits & 1) == 1)
+				if (typeBits & (1 << i))
 				{
 					if ((memoryProperties.memoryTypes[i].propertyFlags & properties) == properties)
 					{
@@ -212,7 +216,7 @@ namespace vk
 					}
 				}
 			}
-			return 0;
+			throw std::runtime_error("failed to find a suitable memory type index");
 		}
 
 		VkResult CreateLogicalDevice(VkPhysicalDeviceFeatures enabledFeatures, std::vector<const char*> deviceExtensions, std::vector<const char*> validationLayers)
@@ -320,6 +324,8 @@ namespace vk
 		VkResult CreateBuffer(VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags memoryPropertyFlags, VkDeviceSize size, Buffer* buffer, void* data = nullptr)
 		{
 			VkResult err;
+
+			buffer->device = logicalDevice;
 
 			// Create the buffer handle
 			VkBufferCreateInfo bufferCreateInfo = vk::initializers::BufferCreateInfo(usageFlags, size);

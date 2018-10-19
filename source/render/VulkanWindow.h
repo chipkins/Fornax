@@ -15,6 +15,7 @@ namespace vk
 		Window(GLFWwindow* window)
 		{
 			windowPtr = window;
+			glfwGetWindowSize(windowPtr, &width, &height);
 		}
 
 		VkResult InitSurface(VkInstance instance)
