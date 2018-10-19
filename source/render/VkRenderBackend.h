@@ -1,6 +1,5 @@
 #pragma once
 
-#include "VulkanHeader.h"
 #include "VkRenderBase.h"
 #include "VulkanBuffer.h"
 #include "VulkanModel.h"

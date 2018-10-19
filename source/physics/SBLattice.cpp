@@ -12,7 +12,7 @@ SBLattice::SBLattice()
 	restHeight = restWidth = 0;
 }
 
-SBLattice::SBLattice(Model m, float width, float height, int x, int y, float k, float d)
+SBLattice::SBLattice(vk::Model m, float width, float height, int x, int y, float k, float d)
 {
 	mesh = m;
 

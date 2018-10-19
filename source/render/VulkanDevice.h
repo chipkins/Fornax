@@ -212,6 +212,7 @@ namespace vk
 					}
 				}
 			}
+			return 0;
 		}
 
 		VkResult CreateLogicalDevice(VkPhysicalDeviceFeatures enabledFeatures, std::vector<const char*> deviceExtensions, std::vector<const char*> validationLayers)
