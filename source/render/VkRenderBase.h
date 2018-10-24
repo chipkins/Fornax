@@ -50,7 +50,7 @@ protected:
 		VkSemaphore renderFinished;
 	} m_semaphores;
 
-	std::vector<VkFramebuffer> m_framebuffers;
+	//std::vector<VkFramebuffer> m_framebuffers;
 	uint32_t                   m_currentBuffer;
 
 	VkDescriptorPool            m_descriptorPool = VK_NULL_HANDLE;

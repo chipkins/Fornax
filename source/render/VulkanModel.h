@@ -20,7 +20,7 @@ namespace vk
 			return bindingDescription;
 		}
 
-		static std::array<VkVertexInputAttributeDescription, 3> getAttributeDescriptions()
+		static std::array<VkVertexInputAttributeDescription, 3> GetAttributeDescriptions()
 		{
 			std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions = {};
 

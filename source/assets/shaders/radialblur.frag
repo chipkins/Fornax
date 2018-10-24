@@ -3,8 +3,6 @@
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_420pack : enable
 
-layout (binding = 1) uniform sampler2D samplerColor;
-
 layout (binding = 0) uniform UBO 
 {
 	float radialBlurScale;
@@ -12,13 +10,15 @@ layout (binding = 0) uniform UBO
 	vec2 radialOrigin;
 } ubo;
 
+layout (binding = 1) uniform sampler2D texSampler;
+
 layout (location = 0) in vec2 inUV;
 
-layout (location = 0) out vec4 outFragColor;
+layout (location = 0) out vec4 outColor;
 
 void main() 
 {
-	ivec2 texDim = textureSize(samplerColor, 0);
+	ivec2 texDim = textureSize(texSampler, 0);
 	vec2 radialSize = vec2(1.0 / texDim.s, 1.0 / texDim.t); 
 	
 	vec2 UV = inUV;
@@ -31,8 +31,8 @@ void main()
 	for (int i = 0; i < samples; i++) 
 	{
 		float scale = 1.0 - ubo.radialBlurScale * (float(i) / float(samples-1));
-		color += texture(samplerColor, UV * scale + ubo.radialOrigin);
+		color += texture(texSampler, UV * scale + ubo.radialOrigin);
 	}
  
-	outFragColor = (color / samples) * ubo.radialBlurStrength;
+	outColor = (color / samples) * ubo.radialBlurStrength;
 }
