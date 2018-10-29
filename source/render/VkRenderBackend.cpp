@@ -42,11 +42,6 @@ void VkRenderBackend::Init(GLFWwindow* window)
 
 void VkRenderBackend::Cleanup()
 {
-	/*delete resources.pipelineLayouts;
-	delete resources.pipelines;
-	delete resources.descriptorSetLayouts;
-	delete resources.descriptorSets;*/
-
 	m_uniformBuffers.blur.destroy();
 	m_uniformBuffers.scene.destroy();
 
@@ -607,21 +602,11 @@ void VkRenderBackend::UpdateUniformBuffers(Camera camera, glm::vec3* deformVecs,
 {
 	Prepare();
 
-	//ubo.model = glm::rotate(glm::mat4(1.0f), dt * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 	uboScene.model = glm::mat4();
-	//ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 	uboScene.view = camera.getView();
-	//ubo.proj = glm::perspective(glm::radians(45.0f), m_window.width / (float)m_window.height, 0.1f, 10.0f);
 	uboScene.proj = camera.getProj();
-	//ubo.proj[1][1] *= -1;
-
-	/*for (int i = 0; i < m_models[0].getNumVertices(); ++i)
-	{
-		uboScene.deformVec[i] = deformVecs[i];
-	}*/
 
 	m_uniformBuffers.scene.copyTo(&uboScene, sizeof(UBOScene));
-	//memcpy(data, &uboScene, sizeof(UBOScene));
 	m_uniformBuffers.scene.unmap();
 }
 
@@ -828,7 +813,6 @@ void VkRenderBackend::Draw()
 
 void VkRenderBackend::Prepare()
 {
-	//VkRenderBase::Prepare();
 	SetupDescriptorPool();
 	PrepareOffscreenFramebuffer();
 	PrepareUniformBuffers();
@@ -836,7 +820,6 @@ void VkRenderBackend::Prepare()
 	PreparePipelines();
 	BuildCommandBuffers();
 	BuildOffscreenCommandBuffer();
-	//prepared = true;
 }
 
 #pragma endregion
