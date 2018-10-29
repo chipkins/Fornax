@@ -20,6 +20,12 @@ public:
 
 private:
 
+	struct {
+		VkPipelineVertexInputStateCreateInfo inputState;
+		std::vector<VkVertexInputBindingDescription> bindingDescriptions;
+		std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions;
+	} vertexInput;
+
 	struct UBOScene
 	{
 		glm::mat4 model;
@@ -106,6 +112,7 @@ private:
 	void PreparePipelines();
 	void PrepareUniformBuffers();
 	//void SetupLights();
+	void SetupVertexInput();
 
 	void Draw();
 	void Prepare();

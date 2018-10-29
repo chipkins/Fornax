@@ -138,7 +138,7 @@ namespace vk
 
 			if (oldSwapchain != VK_NULL_HANDLE)
 			{
-				for (auto view : imageViews)
+				for (auto& view : imageViews)
 				{
 					vkDestroyImageView(logicalDevice, view, nullptr);
 				}
@@ -243,7 +243,7 @@ namespace vk
 		{
 			if (swapchain != VK_NULL_HANDLE)
 			{
-				for (auto view : imageViews)
+				for (auto& view : imageViews)
 				{
 					vkDestroyImageView(logicalDevice, view, nullptr);
 				}

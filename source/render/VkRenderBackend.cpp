@@ -38,12 +38,26 @@ void VkRenderBackend::Init(GLFWwindow* window)
 	m_models[0].LoadModel("../source/assets/models/quad.obj");
 	CreateVertexBuffer();
 	CreateIndexBuffer();
+	SetupVertexInput();
+
+	SetupDescriptorPool();
+	PrepareOffscreenFramebuffer();
+	PrepareUniformBuffers();
+	SetupLayoutsAndDescriptors();
+	PreparePipelines();
+	BuildCommandBuffers();
+	BuildOffscreenCommandBuffer();
 }
 
 void VkRenderBackend::Cleanup()
 {
 	m_uniformBuffers.blur.destroy();
 	m_uniformBuffers.scene.destroy();
+
+	vkDestroyImageView(m_device->logicalDevice, m_textureImageView, nullptr);
+	vkDestroyImage(m_device->logicalDevice, m_textureImage, nullptr);
+	vkFreeMemory(m_device->logicalDevice, m_textureImageMemory, nullptr);
+	vkDestroySampler(m_device->logicalDevice, m_textureSampler, nullptr);
 
 	// Color attachment
 	vkDestroyImageView(m_device->logicalDevice, m_offScreenFrameBuffer.color.view, nullptr);
@@ -339,9 +353,9 @@ void VkRenderBackend::BuildCommandBuffers()
 		vkCmdBindDescriptorSets(m_commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayouts.scene, 0, 1, &m_descriptorSets.scene, 0, NULL);
 		vkCmdBindPipeline(m_commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelines.scene);
 
-		vkCmdBindVertexBuffers(m_commandBuffers[i], 0, 1, &m_vertexBuffer, offsets);
+		/*vkCmdBindVertexBuffers(m_commandBuffers[i], 0, 1, &m_vertexBuffer, offsets);
 		vkCmdBindIndexBuffer(m_commandBuffers[i], m_indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-		vkCmdDrawIndexed(m_commandBuffers[i], m_models[0].getNumIndices(), 1, 0, 0, 0);
+		vkCmdDrawIndexed(m_commandBuffers[i], m_models[0].getNumIndices(), 1, 0, 0, 0);*/
 
 		// Fullscreen triangle (clipped to a quad) with radial blur
 		vkCmdBindDescriptorSets(m_commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayouts.blur, 0, 1, &m_descriptorSets.blur, 0, NULL);
@@ -391,11 +405,6 @@ void VkRenderBackend::SetupLayoutsAndDescriptors()
 			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 			VK_SHADER_STAGE_FRAGMENT_BIT,
 			1),
-		// Binding 2: Fragment shader uniform buffer
-		vk::initializers::DescriptorSetLayoutBinding(
-			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-			VK_SHADER_STAGE_FRAGMENT_BIT,
-			2)
 	};
 	descriptorLayout = vk::initializers::DescriptorSetLayoutCreateInfo(setLayoutBindings.data(), static_cast<uint32_t>(setLayoutBindings.size()));
 	vkCreateDescriptorSetLayout(m_device->logicalDevice, &descriptorLayout, nullptr, &m_descriptorSetLayouts.scene);
@@ -405,7 +414,7 @@ void VkRenderBackend::SetupLayoutsAndDescriptors()
 	// Fullscreen radial blur
 	setLayoutBindings =
 	{
-		// Binding 0 : Vertex shader uniform buffer
+		// Binding 0 : Fragment shader uniform buffer
 		vk::initializers::DescriptorSetLayoutBinding(
 			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 			VK_SHADER_STAGE_FRAGMENT_BIT,
@@ -540,12 +549,12 @@ void VkRenderBackend::PreparePipelines()
 	pipelineCreateInfo.pStages = shaderStages.data();
 
 	// Radial blur pipeline
-	shaderStages[0] = LoadShader("shaders/radialblur.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-	shaderStages[1] = LoadShader("shaders/radialblur.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+	shaderStages[0] = VkRenderBase::LoadShader("shaders/radialblur.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+	shaderStages[1] = VkRenderBase::LoadShader("shaders/radialblur.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
 	// Empty vertex input state
 	VkPipelineVertexInputStateCreateInfo emptyInputState = vk::initializers::PipelineVertexInputStateCreateInfo();
 	pipelineCreateInfo.pVertexInputState = &emptyInputState;
-	pipelineCreateInfo.layout = m_pipelineLayouts.blur;
+	//pipelineCreateInfo.layout = m_pipelineLayouts.blur;
 	// Additive blending
 	blendAttachmentState.colorWriteMask = 0xF;
 	blendAttachmentState.blendEnable = VK_TRUE;
@@ -560,7 +569,9 @@ void VkRenderBackend::PreparePipelines()
 	// Color only pass (offscreen blur base)
 	shaderStages[0] = LoadShader("shaders/shader.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
 	shaderStages[1] = LoadShader("shaders/shader.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+	pipelineCreateInfo.pVertexInputState = &vertexInput.inputState;
 	pipelineCreateInfo.renderPass = m_offScreenFrameBuffer.renderPass;
+	pipelineCreateInfo.layout = m_pipelineLayouts.scene;
 	blendAttachmentState.blendEnable = VK_FALSE;
 	depthStencilState.depthWriteEnable = VK_TRUE;
 	vkCreateGraphicsPipelines(m_device->logicalDevice, m_pipelineCache, 1, &pipelineCreateInfo, nullptr, &m_pipelines.scene);
@@ -589,13 +600,23 @@ void VkRenderBackend::PrepareUniformBuffers()
 	m_uniformBuffers.blur.map();
 }
 
+void VkRenderBackend::SetupVertexInput()
+{
+	vertexInput.attributeDescriptions = vk::Vertex::GetAttributeDescriptions();
+	vertexInput.bindingDescriptions.push_back(vk::Vertex::GetBindingDescription());
+
+	vertexInput.inputState = vk::initializers::PipelineVertexInputStateCreateInfo();
+	vertexInput.inputState.vertexBindingDescriptionCount = vertexInput.bindingDescriptions.size();
+	vertexInput.inputState.pVertexBindingDescriptions = vertexInput.bindingDescriptions.data();
+	vertexInput.inputState.vertexAttributeDescriptionCount = vertexInput.attributeDescriptions.size();
+	vertexInput.inputState.pVertexAttributeDescriptions = vertexInput.attributeDescriptions.data();
+}
+
 void VkRenderBackend::RequestFrameRender()
 {
 	vkQueueWaitIdle(m_context.presentQueue);
 
-	PrepareFrame();
-
-	SubmitFrame();
+	Draw();
 }
 
 void VkRenderBackend::UpdateUniformBuffers(Camera camera, glm::vec3* deformVecs, float dt)
@@ -605,6 +626,9 @@ void VkRenderBackend::UpdateUniformBuffers(Camera camera, glm::vec3* deformVecs,
 	uboScene.model = glm::mat4();
 	uboScene.view = camera.getView();
 	uboScene.proj = camera.getProj();
+
+	if (!m_uniformBuffers.scene.mapped)
+		m_uniformBuffers.scene.map();
 
 	m_uniformBuffers.scene.copyTo(&uboScene, sizeof(UBOScene));
 	m_uniformBuffers.scene.unmap();

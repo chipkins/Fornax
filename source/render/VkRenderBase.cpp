@@ -93,20 +93,12 @@ void VkRenderBase::Init(GLFWwindow* window)
 
 void VkRenderBase::Cleanup()
 {
-	m_swapchain.Cleanup();
+	CleanupSwapchain();
 
-	vkDestroyImageView(m_device->logicalDevice, m_depthStencil.view, nullptr);
-	vkDestroyImage(m_device->logicalDevice, m_depthStencil.image, nullptr);
-	vkFreeMemory(m_device->logicalDevice, m_depthStencil.memory, nullptr);
-
-	vkDestroyRenderPass(m_device->logicalDevice, m_context.renderPass, nullptr);
-
-	for (auto framebuffer : m_framebuffers)
+	for (auto& shaderModule : m_shaderModules)
 	{
-		vkDestroyFramebuffer(m_device->logicalDevice, framebuffer, nullptr);
+		vkDestroyShaderModule(m_device->logicalDevice, shaderModule, nullptr);
 	}
-
-	vkFreeCommandBuffers(m_device->logicalDevice, m_commandPool, 1, m_commandBuffers.data());
 
 	vkDestroySemaphore(m_device->logicalDevice, m_semaphores.imageAvailable, nullptr);
 	vkDestroySemaphore(m_device->logicalDevice, m_semaphores.renderFinished, nullptr);
@@ -119,12 +111,6 @@ void VkRenderBase::Cleanup()
 	}
 	vkDestroyCommandPool(m_device->logicalDevice, m_commandPool, nullptr);
 	
-	vkDestroyDevice(m_device->logicalDevice, nullptr);
-	if (c_enableValidationLayers)
-	{
-		DestroyDebugReportCallbackEXT(m_instance, m_callback, nullptr);
-	}
-
 	delete m_device;
 	m_window->DestroySurface(m_instance);
 	delete m_window;
@@ -356,6 +342,8 @@ VkPipelineShaderStageCreateInfo VkRenderBase::LoadShader(std::string fileName, V
 	shaderStageCreateInfo.module = shaderModule;
 	shaderStageCreateInfo.pName = "main";
 
+	m_shaderModules.push_back(shaderModule);
+
 	return shaderStageCreateInfo;
 }
 
@@ -432,7 +420,7 @@ void VkRenderBase::CleanupSwapchain()
 	vkDestroyImage(m_device->logicalDevice, m_depthStencil.image, nullptr);
 	vkFreeMemory(m_device->logicalDevice, m_depthStencil.memory, nullptr);
 
-	for (auto framebuffer : m_swapchainFramebuffers)
+	for (auto& framebuffer : m_swapchainFramebuffers)
 	{
 		vkDestroyFramebuffer(m_device->logicalDevice, framebuffer, nullptr);
 	}
