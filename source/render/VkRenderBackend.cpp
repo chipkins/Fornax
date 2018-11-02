@@ -554,7 +554,7 @@ void VkRenderBackend::PreparePipelines()
 	pipelineCreateInfo.pStages = shaderStages.data();
 
 	// Radial blur pipeline
-	shaderStages[0] = VkRenderBase::LoadShader("shaders/radialblur.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+	shaderStages[0] = VkRenderBase::LoadShader("shaders/screenTri.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
 	shaderStages[1] = VkRenderBase::LoadShader("shaders/radialblur.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
 	// Empty vertex input state
 	VkPipelineVertexInputStateCreateInfo emptyInputState = vk::initializers::PipelineVertexInputStateCreateInfo();
@@ -685,7 +685,7 @@ void VkRenderBackend::CreateDescriptorSetLayout()
 void VkRenderBackend::CreateTextureImage()
 {
 	int32_t texWidth, texHeight, texChannels;
-	stbi_uc* pixels = stbi_load("../source/assets/textures/texture.jpg", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+	stbi_uc* pixels = stbi_load("../source/assets/textures/TestTexture.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
 	VkDeviceSize imageSize = texWidth * texHeight * 4;
 
 	if (!pixels)
