@@ -621,8 +621,6 @@ void VkRenderBackend::RequestFrameRender()
 
 void VkRenderBackend::UpdateUniformBuffers(Camera camera, glm::vec3* deformVecs, float dt)
 {
-	Prepare();
-
 	uboScene.model = glm::mat4();
 	uboScene.view = camera.getView();
 	uboScene.proj = camera.getProj();
