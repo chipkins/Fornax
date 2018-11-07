@@ -141,14 +141,14 @@ void FornaxApp::Run()
 
 		glfwGetCursorPos(m_window, &mouseX, &mouseY);
 		if (l_buttonHeld)
-			m_softbody->SetNetForce(glm::vec3((mouseX - prevMouseX)*0.25, (mouseY - prevMouseY)*0.25, 0));
+			m_softbody->SetNetForce(glm::vec3((prevMouseX - mouseX)*0.25, (mouseY - prevMouseY)*0.25, 0));
 		if (r_buttonHeld)
-			m_camera.MouseRotate((mouseY - prevMouseY)*0.00125, (mouseX - prevMouseX)*0.00125);
+			m_camera.MouseRotate((mouseX - prevMouseX)*0.00125, (mouseY - prevMouseY)*0.00125);
 		
 		if (heldKeys[GLFW_KEY_W])
-			m_camera.Move(glm::vec3(0, 0, -1.0f), moverate);
-		if (heldKeys[GLFW_KEY_S])
 			m_camera.Move(glm::vec3(0, 0, 1.0f), moverate);
+		if (heldKeys[GLFW_KEY_S])
+			m_camera.Move(glm::vec3(0, 0, -1.0f), moverate);
 		if (heldKeys[GLFW_KEY_D])
 			m_camera.Move(glm::vec3(1.0f, 0, 0), moverate);
 		if (heldKeys[GLFW_KEY_A])

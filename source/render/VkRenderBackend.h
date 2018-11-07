@@ -28,15 +28,16 @@ private:
 
 	struct UBOScene
 	{
-		glm::mat4 model;
 		glm::mat4 view;
-		glm::mat4 proj;
+		glm::vec3 eye;
+		float fov;
+		glm::vec2 resolution;
 	} uboScene;
 
 	struct UBOBlur
 	{
 		float radialBlurScale = 0.35f;
-		float radialBlurStrength = 0.75;
+		float radialBlurStrength = 0.75f;
 		glm::vec2 radialOrigin = glm::vec2(0.5f, 0.5f);
 	} uboBlur;
 

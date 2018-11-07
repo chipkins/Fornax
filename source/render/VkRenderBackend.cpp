@@ -305,10 +305,7 @@ void VkRenderBackend::BuildOffscreenCommandBuffer()
 	vkCmdBindDescriptorSets(m_offScreenFrameBuffer.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayouts.scene, 0, 1, &m_descriptorSets.scene, 0, NULL);
 	vkCmdBindPipeline(m_offScreenFrameBuffer.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelines.scene);
 
-	VkDeviceSize offsets[1] = { 0 };
-	vkCmdBindVertexBuffers(m_offScreenFrameBuffer.commandBuffer, 0, 1, &m_vertexBuffer, offsets);
-	vkCmdBindIndexBuffer(m_offScreenFrameBuffer.commandBuffer, m_indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-	vkCmdDrawIndexed(m_offScreenFrameBuffer.commandBuffer, m_models[0].getNumIndices(), 1, 0, 0, 0);
+	vkCmdDraw(m_offScreenFrameBuffer.commandBuffer, 3, 1, 0, 0);
 
 	vkCmdEndRenderPass(m_offScreenFrameBuffer.commandBuffer);
 
@@ -398,13 +395,8 @@ void VkRenderBackend::SetupLayoutsAndDescriptors()
 		// Binding 0: Vertex shader uniform buffer
 		vk::initializers::DescriptorSetLayoutBinding(
 			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-			VK_SHADER_STAGE_VERTEX_BIT,
-			0),
-		// Binding 1: Fragment shader image sampler
-		vk::initializers::DescriptorSetLayoutBinding(
-			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 			VK_SHADER_STAGE_FRAGMENT_BIT,
-			1),
+			0),
 	};
 	descriptorLayout = vk::initializers::DescriptorSetLayoutCreateInfo(setLayoutBindings.data(), static_cast<uint32_t>(setLayoutBindings.size()));
 	vkCreateDescriptorSetLayout(m_device->logicalDevice, &descriptorLayout, nullptr, &m_descriptorSetLayouts.scene);
@@ -436,11 +428,6 @@ void VkRenderBackend::SetupLayoutsAndDescriptors()
 	descriptorSetAllocInfo = vk::initializers::DescriptorSetAllocateInfo(m_descriptorPool, &m_descriptorSetLayouts.scene, 1);
 	vkAllocateDescriptorSets(m_device->logicalDevice, &descriptorSetAllocInfo, &m_descriptorSets.scene);
 
-	VkDescriptorImageInfo descriptor = {};
-	descriptor.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	descriptor.imageView = m_textureImageView;
-	descriptor.sampler = m_textureSampler;
-
 	std::vector<VkWriteDescriptorSet> offScreenWriteDescriptorSets =
 	{
 		// Binding 0: Vertex shader uniform buffer
@@ -449,12 +436,6 @@ void VkRenderBackend::SetupLayoutsAndDescriptors()
 			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 			0,
 			&m_uniformBuffers.scene.descriptor),
-		// Binding 1: Color gradient sampler
-		vk::initializers::WriteDescriptorSet(
-			m_descriptorSets.scene,
-			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-			1,
-			&descriptor),
 	};
 	vkUpdateDescriptorSets(m_device->logicalDevice, offScreenWriteDescriptorSets.size(), offScreenWriteDescriptorSets.data(), 0, NULL);
 
@@ -567,9 +548,9 @@ void VkRenderBackend::PreparePipelines()
 	vkCreateGraphicsPipelines(m_device->logicalDevice, m_pipelineCache, 1, &pipelineCreateInfo, nullptr, &m_pipelines.blur);
 
 	// Color only pass (offscreen blur base)
-	shaderStages[0] = LoadShader("shaders/shader.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-	shaderStages[1] = LoadShader("shaders/shader.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
-	pipelineCreateInfo.pVertexInputState = &vertexInput.inputState;
+	shaderStages[0] = LoadShader("shaders/screenTri.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+	shaderStages[1] = LoadShader("shaders/sceneSDF.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+	pipelineCreateInfo.pVertexInputState = &emptyInputState;
 	pipelineCreateInfo.renderPass = m_offScreenFrameBuffer.renderPass;
 	pipelineCreateInfo.layout = m_pipelineLayouts.scene;
 	blendAttachmentState.blendEnable = VK_FALSE;
@@ -621,9 +602,10 @@ void VkRenderBackend::RequestFrameRender()
 
 void VkRenderBackend::UpdateUniformBuffers(Camera camera, glm::vec3* deformVecs, float dt)
 {
-	uboScene.model = glm::mat4();
 	uboScene.view = camera.getView();
-	uboScene.proj = camera.getProj();
+	uboScene.fov = 45.0f;
+	uboScene.eye = camera.getPos();
+	uboScene.resolution = glm::vec2(m_window->width, m_window->height);
 
 	if (!m_uniformBuffers.scene.mapped)
 		m_uniformBuffers.scene.map();
@@ -640,7 +622,7 @@ void VkRenderBackend::CreateDescriptorSetLayout()
 	uboLayoutBinding.binding = 0;
 	uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	uboLayoutBinding.descriptorCount = 1;
-	uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	uboLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 	uboLayoutBinding.pImmutableSamplers = nullptr;
 
 	VkDescriptorSetLayoutBinding samplerLayoutBinding = {};
@@ -653,13 +635,15 @@ void VkRenderBackend::CreateDescriptorSetLayout()
 	std::array<VkDescriptorSetLayoutBinding, 2> bindings = {uboLayoutBinding, samplerLayoutBinding};
 	VkDescriptorSetLayoutCreateInfo layoutInfo = {};
 	layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-	layoutInfo.bindingCount = 2;
+	layoutInfo.bindingCount = 1;
 	layoutInfo.pBindings = bindings.data();
 
 	if (vkCreateDescriptorSetLayout(m_device->logicalDevice, &layoutInfo, nullptr, &m_descriptorSetLayouts.scene) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to create descriptor set layout!");
 	}
+
+	layoutInfo.bindingCount = 2;
 
 	if (vkCreateDescriptorSetLayout(m_device->logicalDevice, &layoutInfo, nullptr, &m_descriptorSetLayouts.blur) != VK_SUCCESS)
 	{
