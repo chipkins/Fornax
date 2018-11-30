@@ -18,30 +18,30 @@
 
 #pragma endregion
 
-//struct Resources
-//{
-//	vk::PipelineLayoutList* pipelineLayouts;
-//	vk::PipelineList *pipelines;
-//	vk::DescriptorSetLayoutList *descriptorSetLayouts;
-//	vk::DescriptorSetList * descriptorSets;
-//} resources;
+struct Resources
+{
+	vk::PipelineLayoutList* pipelineLayouts;
+	vk::PipelineList *pipelines;
+	vk::DescriptorSetLayoutList *descriptorSetLayouts;
+	vk::DescriptorSetList * descriptorSets;
+} resources;
 
 void VkRenderBackend::Init(GLFWwindow* window)
 {
 	VkRenderBase::Init(window);
 
+	SetupDescriptorPool();
+
+	resources.pipelineLayouts = new vk::PipelineLayoutList(m_device->logicalDevice);
+	resources.pipelines = new vk::PipelineList(m_device->logicalDevice);
+	resources.descriptorSetLayouts = new vk::DescriptorSetLayoutList(m_device->logicalDevice);
+	resources.descriptorSets = new vk::DescriptorSetList(m_device->logicalDevice, m_descriptorPool);
+
 	CreateTextureImage();
 	CreateTextureImageView();
 	CreateTextureSampler();
 
-	m_models.emplace_back();
-	m_models[0].LoadModel("../source/assets/models/quad.obj");
-	CreateVertexBuffer();
-	CreateIndexBuffer();
-	SetupVertexInput();
-
-	SetupDescriptorPool();
-	PrepareOffscreenFramebuffer();
+	PrepareOffscreenFramebuffers();
 	PrepareUniformBuffers();
 	SetupLayoutsAndDescriptors();
 	PreparePipelines();
@@ -51,6 +51,11 @@ void VkRenderBackend::Init(GLFWwindow* window)
 
 void VkRenderBackend::Cleanup()
 {
+	delete resources.pipelineLayouts;
+	delete resources.pipelines;
+	delete resources.descriptorSetLayouts;
+	delete resources.descriptorSets;
+
 	m_uniformBuffers.blur.destroy();
 	m_uniformBuffers.scene.destroy();
 
@@ -59,21 +64,25 @@ void VkRenderBackend::Cleanup()
 	vkFreeMemory(m_device->logicalDevice, m_textureImageMemory, nullptr);
 	vkDestroySampler(m_device->logicalDevice, m_textureSampler, nullptr);
 
-	// Color attachment
-	vkDestroyImageView(m_device->logicalDevice, m_offScreenFrameBuffer.color.view, nullptr);
-	vkDestroyImage(m_device->logicalDevice, m_offScreenFrameBuffer.color.image, nullptr);
-	vkFreeMemory(m_device->logicalDevice, m_offScreenFrameBuffer.color.memory, nullptr);
+	// Cleanup offscreen framebuffer
+	// Color attachments
+	for (auto attachment : m_framebuffers.offscreen.attachments)
+	{
+		vkDestroyImageView(m_device->logicalDevice, m_framebuffers.offscreen.color.view, nullptr);
+		vkDestroyImage(m_device->logicalDevice, m_framebuffers.offscreen.color.image, nullptr);
+		vkFreeMemory(m_device->logicalDevice, m_framebuffers.offscreen.color.memory, nullptr);
+	}
 
 	// Depth attachment
-	vkDestroyImageView(m_device->logicalDevice, m_offScreenFrameBuffer.depth.view, nullptr);
-	vkDestroyImage(m_device->logicalDevice, m_offScreenFrameBuffer.depth.image, nullptr);
-	vkFreeMemory(m_device->logicalDevice, m_offScreenFrameBuffer.depth.memory, nullptr);
+	vkDestroyImageView(m_device->logicalDevice, m_framebuffers.offscreen.depth.view, nullptr);
+	vkDestroyImage(m_device->logicalDevice, m_framebuffers.offscreen.depth.image, nullptr);
+	vkFreeMemory(m_device->logicalDevice, m_framebuffers.offscreen.depth.memory, nullptr);
 
-	vkFreeCommandBuffers(m_device->logicalDevice, m_commandPool, 1, &m_offScreenFrameBuffer.commandBuffer);
-	vkDestroyRenderPass(m_device->logicalDevice, m_offScreenFrameBuffer.renderPass, nullptr);
-	vkDestroySemaphore(m_device->logicalDevice, m_offScreenFrameBuffer.semaphore, nullptr);
-	vkDestroyFramebuffer(m_device->logicalDevice, m_offScreenFrameBuffer.frameBuffer, nullptr);
-	vkDestroySampler(m_device->logicalDevice, m_offScreenFrameBuffer.sampler, nullptr);
+	vkFreeCommandBuffers(m_device->logicalDevice, m_commandPool, 1, &m_framebuffers.offscreen.commandBuffer);
+	vkDestroyRenderPass(m_device->logicalDevice, m_framebuffers.offscreen.renderPass, nullptr);
+	vkDestroySemaphore(m_device->logicalDevice, m_framebuffers.offscreen.semaphore, nullptr);
+	vkDestroyFramebuffer(m_device->logicalDevice, m_framebuffers.offscreen.frameBuffer, nullptr);
+	vkDestroySampler(m_device->logicalDevice, m_framebuffers.offscreen.sampler, nullptr);
 
 	vkDestroyPipeline(m_device->logicalDevice, m_pipelines.blur, nullptr);
 	vkDestroyPipeline(m_device->logicalDevice, m_pipelines.scene, nullptr);
@@ -92,22 +101,84 @@ void VkRenderBackend::Cleanup()
 	VkRenderBase::Cleanup();
 }
 
+void VkRenderBackend::CreateAttachment(VkFormat format, VkImageUsageFlagBits usage, FrameBufferAttachment *attachment, uint32_t width, uint32_t height)
+{
+	VkImageAspectFlags aspectMask = 0;
+	VkImageLayout imageLayout;
+
+	attachment->format = format;
+
+	if (usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
+	{
+		aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	}
+	if (usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
+	{
+		aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+		imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+	}
+
+	assert(aspectMask > 0);
+
+	VkImageCreateInfo image = vk::initializers::ImageCreateInfo();
+	image.imageType = VK_IMAGE_TYPE_2D;
+	image.format = format;
+	image.extent.width = width;
+	image.extent.height = height;
+	image.extent.depth = 1;
+	image.mipLevels = 1;
+	image.arrayLayers = 1;
+	image.samples = VK_SAMPLE_COUNT_1_BIT;
+	image.tiling = VK_IMAGE_TILING_OPTIMAL;
+	image.usage = usage | VK_IMAGE_USAGE_SAMPLED_BIT;
+
+	vkCreateImage(m_device->logicalDevice, &image, nullptr, &attachment->image);
+
+	VkMemoryAllocateInfo memAlloc = vk::initializers::MemoryAllocateInfo();
+	VkMemoryRequirements memReqs;
+	vkGetImageMemoryRequirements(m_device->logicalDevice, attachment->image, &memReqs);
+	memAlloc.allocationSize = memReqs.size;
+	memAlloc.memoryTypeIndex = m_device->GetMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+	vkAllocateMemory(m_device->logicalDevice, &memAlloc, nullptr, &attachment->memory);
+	vkBindImageMemory(m_device->logicalDevice, attachment->image, attachment->memory, 0);
+
+	VkImageViewCreateInfo imageView = vk::initializers::ImageViewCreateInfo();
+	imageView.viewType = VK_IMAGE_VIEW_TYPE_2D;
+	imageView.format = format;
+	imageView.subresourceRange = {};
+	imageView.subresourceRange.aspectMask = aspectMask;
+	imageView.subresourceRange.baseMipLevel = 0;
+	imageView.subresourceRange.levelCount = 1;
+	imageView.subresourceRange.baseArrayLayer = 0;
+	imageView.subresourceRange.layerCount = 1;
+	imageView.image = attachment->image;
+	vkCreateImageView(m_device->logicalDevice, &imageView, nullptr, &attachment->view);
+}
+
 // Setup the offscreen framebuffer for rendering the blurred scene
 // The color attachment of this framebuffer will then be used to sample frame in the fragment shader of the final pass
-void VkRenderBackend::PrepareOffscreenFramebuffer()
+void VkRenderBackend::PrepareOffscreenFramebuffers()
 {
-	m_offScreenFrameBuffer.width = 512;
-	m_offScreenFrameBuffer.height = 512;
+	m_framebuffers.offscreen.width = m_framebuffers.blur.width = 512;
+	m_framebuffers.offscreen.height = m_framebuffers.blur.height = 512;
+	
+	// Color attachment
+	CreateAttachment(VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, &m_framebuffers.offscreen.attachments[0], 512, 512);
+	CreateAttachment(VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, &m_framebuffers.offscreen.attachments[1], 512, 512);
+	CreateAttachment(VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, &m_framebuffers.offscreen.attachments[2], 512, 512);
 
 	// Find a suitable depth format
 	VkFormat depthFormat = FindDepthFormat();
 
-	// Color attachment
+	CreateAttachment(depthFormat, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, &m_framebuffers.offscreen.depth, 512, 512);
+
 	VkImageCreateInfo image = vk::initializers::ImageCreateInfo();
 	image.imageType = VK_IMAGE_TYPE_2D;
 	image.format = VK_FORMAT_R8G8B8A8_UNORM;
-	image.extent.width = m_offScreenFrameBuffer.width;
-	image.extent.height = m_offScreenFrameBuffer.height;
+	image.extent.width = m_framebuffers.offscreen.width;
+	image.extent.height = m_framebuffers.offscreen.height;
 	image.extent.depth = 1;
 	image.mipLevels = 1;
 	image.arrayLayers = 1;
@@ -119,12 +190,12 @@ void VkRenderBackend::PrepareOffscreenFramebuffer()
 	VkMemoryAllocateInfo memAlloc = vk::initializers::MemoryAllocateInfo();
 	VkMemoryRequirements memReqs;
 
-	vkCreateImage(m_device->logicalDevice, &image, nullptr, &m_offScreenFrameBuffer.color.image);
-	vkGetImageMemoryRequirements(m_device->logicalDevice, m_offScreenFrameBuffer.color.image, &memReqs);
+	vkCreateImage(m_device->logicalDevice, &image, nullptr, &m_framebuffers.offscreen.color.image);
+	vkGetImageMemoryRequirements(m_device->logicalDevice, m_framebuffers.offscreen.color.image, &memReqs);
 	memAlloc.allocationSize = memReqs.size;
 	memAlloc.memoryTypeIndex = m_device->GetMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	vkAllocateMemory(m_device->logicalDevice, &memAlloc, nullptr, &m_offScreenFrameBuffer.color.memory);
-	vkBindImageMemory(m_device->logicalDevice, m_offScreenFrameBuffer.color.image, m_offScreenFrameBuffer.color.memory, 0);
+	vkAllocateMemory(m_device->logicalDevice, &memAlloc, nullptr, &m_framebuffers.offscreen.color.memory);
+	vkBindImageMemory(m_device->logicalDevice, m_framebuffers.offscreen.color.image, m_framebuffers.offscreen.color.memory, 0);
 
 	VkImageViewCreateInfo colorImageView = vk::initializers::ImageViewCreateInfo();
 	colorImageView.viewType = VK_IMAGE_VIEW_TYPE_2D;
@@ -135,8 +206,8 @@ void VkRenderBackend::PrepareOffscreenFramebuffer()
 	colorImageView.subresourceRange.levelCount = 1;
 	colorImageView.subresourceRange.baseArrayLayer = 0;
 	colorImageView.subresourceRange.layerCount = 1;
-	colorImageView.image = m_offScreenFrameBuffer.color.image;
-	vkCreateImageView(m_device->logicalDevice, &colorImageView, nullptr, &m_offScreenFrameBuffer.color.view);
+	colorImageView.image = m_framebuffers.offscreen.color.image;
+	vkCreateImageView(m_device->logicalDevice, &colorImageView, nullptr, &m_framebuffers.offscreen.color.view);
 
 	// Create sampler to sample from the attachment in the fragment shader
 	VkSamplerCreateInfo samplerInfo = vk::initializers::SamplerCreateInfo();
@@ -151,18 +222,18 @@ void VkRenderBackend::PrepareOffscreenFramebuffer()
 	samplerInfo.minLod = 0.0f;
 	samplerInfo.maxLod = 1.0f;
 	samplerInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
-	vkCreateSampler(m_device->logicalDevice, &samplerInfo, nullptr, &m_offScreenFrameBuffer.sampler);
+	vkCreateSampler(m_device->logicalDevice, &samplerInfo, nullptr, &m_framebuffers.offscreen.sampler);
 
 	// Depth stencil attachment
 	image.format = depthFormat;
 	image.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 
-	vkCreateImage(m_device->logicalDevice, &image, nullptr, &m_offScreenFrameBuffer.depth.image);
-	vkGetImageMemoryRequirements(m_device->logicalDevice, m_offScreenFrameBuffer.depth.image, &memReqs);
+	vkCreateImage(m_device->logicalDevice, &image, nullptr, &m_framebuffers.offscreen.depth.image);
+	vkGetImageMemoryRequirements(m_device->logicalDevice, m_framebuffers.offscreen.depth.image, &memReqs);
 	memAlloc.allocationSize = memReqs.size;
 	memAlloc.memoryTypeIndex = m_device->GetMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	vkAllocateMemory(m_device->logicalDevice, &memAlloc, nullptr, &m_offScreenFrameBuffer.depth.memory);
-	vkBindImageMemory(m_device->logicalDevice, m_offScreenFrameBuffer.depth.image, m_offScreenFrameBuffer.depth.memory, 0);
+	vkAllocateMemory(m_device->logicalDevice, &memAlloc, nullptr, &m_framebuffers.offscreen.depth.memory);
+	vkBindImageMemory(m_device->logicalDevice, m_framebuffers.offscreen.depth.image, m_framebuffers.offscreen.depth.memory, 0);
 
 	VkImageViewCreateInfo depthStencilView = vk::initializers::ImageViewCreateInfo();
 	depthStencilView.viewType = VK_IMAGE_VIEW_TYPE_2D;
@@ -174,8 +245,8 @@ void VkRenderBackend::PrepareOffscreenFramebuffer()
 	depthStencilView.subresourceRange.levelCount = 1;
 	depthStencilView.subresourceRange.baseArrayLayer = 0;
 	depthStencilView.subresourceRange.layerCount = 1;
-	depthStencilView.image = m_offScreenFrameBuffer.depth.image;
-	vkCreateImageView(m_device->logicalDevice, &depthStencilView, nullptr, &m_offScreenFrameBuffer.depth.view);
+	depthStencilView.image = m_framebuffers.offscreen.depth.image;
+	vkCreateImageView(m_device->logicalDevice, &depthStencilView, nullptr, &m_framebuffers.offscreen.depth.view);
 
 	// Create a separate render pass for the offscreen rendering as it may differ from the one used for scene rendering
 
@@ -237,32 +308,32 @@ void VkRenderBackend::PrepareOffscreenFramebuffer()
 	renderPassInfo.dependencyCount = static_cast<uint32_t>(dependencies.size());
 	renderPassInfo.pDependencies = dependencies.data();
 
-	vkCreateRenderPass(m_device->logicalDevice, &renderPassInfo, nullptr, &m_offScreenFrameBuffer.renderPass);
+	vkCreateRenderPass(m_device->logicalDevice, &renderPassInfo, nullptr, &m_framebuffers.offscreen.renderPass);
 
 	VkImageView attachments[2];
-	attachments[0] = m_offScreenFrameBuffer.color.view;
-	attachments[1] = m_offScreenFrameBuffer.depth.view;
+	attachments[0] = m_framebuffers.offscreen.color.view;
+	attachments[1] = m_framebuffers.offscreen.depth.view;
 
 	VkFramebufferCreateInfo fbufCreateInfo = vk::initializers::FramebufferCreateInfo();
-	fbufCreateInfo.renderPass = m_offScreenFrameBuffer.renderPass;
+	fbufCreateInfo.renderPass = m_framebuffers.offscreen.renderPass;
 	fbufCreateInfo.attachmentCount = 2;
 	fbufCreateInfo.pAttachments = attachments;
-	fbufCreateInfo.width = m_offScreenFrameBuffer.width;
-	fbufCreateInfo.height = m_offScreenFrameBuffer.height;
+	fbufCreateInfo.width = m_framebuffers.offscreen.width;
+	fbufCreateInfo.height = m_framebuffers.offscreen.height;
 	fbufCreateInfo.layers = 1;
 
-	vkCreateFramebuffer(m_device->logicalDevice, &fbufCreateInfo, nullptr, &m_offScreenFrameBuffer.frameBuffer);
+	vkCreateFramebuffer(m_device->logicalDevice, &fbufCreateInfo, nullptr, &m_framebuffers.offscreen.frameBuffer);
 
 	// Fill a descriptor for later use in a descriptor set 
-	m_offScreenFrameBuffer.descriptor.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	m_offScreenFrameBuffer.descriptor.imageView = m_offScreenFrameBuffer.color.view;
-	m_offScreenFrameBuffer.descriptor.sampler = m_offScreenFrameBuffer.sampler;
+	m_framebuffers.offscreen.descriptor.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	m_framebuffers.offscreen.descriptor.imageView = m_framebuffers.offscreen.color.view;
+	m_framebuffers.offscreen.descriptor.sampler = m_framebuffers.offscreen.sampler;
 }
 
 // Sets up the command buffer that renders the scene to the offscreen frame buffer
 void VkRenderBackend::BuildOffscreenCommandBuffer()
 {
-	if (m_offScreenFrameBuffer.commandBuffer == VK_NULL_HANDLE)
+	if (m_framebuffers.offscreen.commandBuffer == VK_NULL_HANDLE)
 	{
 		VkCommandBufferAllocateInfo cmdBufAllocateInfo =
 			vk::initializers::CommandBufferAllocateInfo(
@@ -270,12 +341,12 @@ void VkRenderBackend::BuildOffscreenCommandBuffer()
 				VK_COMMAND_BUFFER_LEVEL_PRIMARY,
 				1);
 
-		vkAllocateCommandBuffers(m_device->logicalDevice, &cmdBufAllocateInfo, &m_offScreenFrameBuffer.commandBuffer);
+		vkAllocateCommandBuffers(m_device->logicalDevice, &cmdBufAllocateInfo, &m_framebuffers.offscreen.commandBuffer);
 	}
-	if (m_offScreenFrameBuffer.semaphore == VK_NULL_HANDLE)
+	if (m_framebuffers.offscreen.semaphore == VK_NULL_HANDLE)
 	{
 		VkSemaphoreCreateInfo semaphoreCreateInfo = vk::initializers::SemaphoreCreateInfo();
-		vkCreateSemaphore(m_device->logicalDevice, &semaphoreCreateInfo, nullptr, &m_offScreenFrameBuffer.semaphore);
+		vkCreateSemaphore(m_device->logicalDevice, &semaphoreCreateInfo, nullptr, &m_framebuffers.offscreen.semaphore);
 	}
 
 	VkCommandBufferBeginInfo cmdBufInfo = vk::initializers::CommandBufferBeginInfo();
@@ -285,31 +356,31 @@ void VkRenderBackend::BuildOffscreenCommandBuffer()
 	clearValues[1].depthStencil = { 1.0f, 0 };
 
 	VkRenderPassBeginInfo renderPassBeginInfo = vk::initializers::RenderPassBeginInfo();
-	renderPassBeginInfo.renderPass = m_offScreenFrameBuffer.renderPass;
-	renderPassBeginInfo.framebuffer = m_offScreenFrameBuffer.frameBuffer;
-	renderPassBeginInfo.renderArea.extent.width = m_offScreenFrameBuffer.width;
-	renderPassBeginInfo.renderArea.extent.height = m_offScreenFrameBuffer.height;
+	renderPassBeginInfo.renderPass = m_framebuffers.offscreen.renderPass;
+	renderPassBeginInfo.framebuffer = m_framebuffers.offscreen.frameBuffer;
+	renderPassBeginInfo.renderArea.extent.width = m_framebuffers.offscreen.width;
+	renderPassBeginInfo.renderArea.extent.height = m_framebuffers.offscreen.height;
 	renderPassBeginInfo.clearValueCount = 2;
 	renderPassBeginInfo.pClearValues = clearValues;
 
-	vkBeginCommandBuffer(m_offScreenFrameBuffer.commandBuffer, &cmdBufInfo);
+	vkBeginCommandBuffer(m_framebuffers.offscreen.commandBuffer, &cmdBufInfo);
 
-	VkViewport viewport = vk::initializers::Viewport((float)m_offScreenFrameBuffer.width, (float)m_offScreenFrameBuffer.height, 0.0f, 1.0f);
-	vkCmdSetViewport(m_offScreenFrameBuffer.commandBuffer, 0, 1, &viewport);
+	VkViewport viewport = vk::initializers::Viewport((float)m_framebuffers.offscreen.width, (float)m_framebuffers.offscreen.height, 0.0f, 1.0f);
+	vkCmdSetViewport(m_framebuffers.offscreen.commandBuffer, 0, 1, &viewport);
 
-	VkRect2D scissor = vk::initializers::Rect2D(m_offScreenFrameBuffer.width, m_offScreenFrameBuffer.height, 0, 0);
-	vkCmdSetScissor(m_offScreenFrameBuffer.commandBuffer, 0, 1, &scissor);
+	VkRect2D scissor = vk::initializers::Rect2D(m_framebuffers.offscreen.width, m_framebuffers.offscreen.height, 0, 0);
+	vkCmdSetScissor(m_framebuffers.offscreen.commandBuffer, 0, 1, &scissor);
 
-	vkCmdBeginRenderPass(m_offScreenFrameBuffer.commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+	vkCmdBeginRenderPass(m_framebuffers.offscreen.commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-	vkCmdBindDescriptorSets(m_offScreenFrameBuffer.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayouts.scene, 0, 1, &m_descriptorSets.scene, 0, NULL);
-	vkCmdBindPipeline(m_offScreenFrameBuffer.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelines.scene);
+	vkCmdBindDescriptorSets(m_framebuffers.offscreen.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayouts.scene, 0, 1, &m_descriptorSets.scene, 0, NULL);
+	vkCmdBindPipeline(m_framebuffers.offscreen.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelines.scene);
 
-	vkCmdDraw(m_offScreenFrameBuffer.commandBuffer, 3, 1, 0, 0);
+	vkCmdDraw(m_framebuffers.offscreen.commandBuffer, 3, 1, 0, 0);
 
-	vkCmdEndRenderPass(m_offScreenFrameBuffer.commandBuffer);
+	vkCmdEndRenderPass(m_framebuffers.offscreen.commandBuffer);
 
-	vkEndCommandBuffer(m_offScreenFrameBuffer.commandBuffer);
+	vkEndCommandBuffer(m_framebuffers.offscreen.commandBuffer);
 }
 
 void VkRenderBackend::BuildCommandBuffers()
@@ -456,7 +527,7 @@ void VkRenderBackend::SetupLayoutsAndDescriptors()
 			m_descriptorSets.blur,
 			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 			1,
-			&m_offScreenFrameBuffer.descriptor),
+			&m_framebuffers.offscreen.descriptor),
 	};
 
 	vkUpdateDescriptorSets(m_device->logicalDevice, writeDescriptorSets.size(), writeDescriptorSets.data(), 0, NULL);
@@ -551,7 +622,7 @@ void VkRenderBackend::PreparePipelines()
 	shaderStages[0] = LoadShader("shaders/screenTri.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
 	shaderStages[1] = LoadShader("shaders/sceneSDF.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
 	pipelineCreateInfo.pVertexInputState = &emptyInputState;
-	pipelineCreateInfo.renderPass = m_offScreenFrameBuffer.renderPass;
+	pipelineCreateInfo.renderPass = m_framebuffers.offscreen.renderPass;
 	pipelineCreateInfo.layout = m_pipelineLayouts.scene;
 	blendAttachmentState.blendEnable = VK_FALSE;
 	depthStencilState.depthWriteEnable = VK_TRUE;
@@ -796,17 +867,17 @@ void VkRenderBackend::Draw()
 	// Wait for swap chain presentation to finish
 	m_submitInfo.pWaitSemaphores = &m_semaphores.imageAvailable;
 	// Signal ready with offscreen semaphore
-	m_submitInfo.pSignalSemaphores = &m_offScreenFrameBuffer.semaphore;
+	m_submitInfo.pSignalSemaphores = &m_framebuffers.offscreen.semaphore;
 
 	// Submit work
 	m_submitInfo.commandBufferCount = 1;
-	m_submitInfo.pCommandBuffers = &m_offScreenFrameBuffer.commandBuffer;
+	m_submitInfo.pCommandBuffers = &m_framebuffers.offscreen.commandBuffer;
 	vkQueueSubmit(m_context.graphicsQueue, 1, &m_submitInfo, VK_NULL_HANDLE);
 
 	// Scene rendering
 
 	// Wait for offscreen semaphore
-	m_submitInfo.pWaitSemaphores = &m_offScreenFrameBuffer.semaphore;
+	m_submitInfo.pWaitSemaphores = &m_framebuffers.offscreen.semaphore;
 	// Signal ready with render complete semaphpre
 	m_submitInfo.pSignalSemaphores = &m_semaphores.renderFinished;
 
@@ -815,17 +886,6 @@ void VkRenderBackend::Draw()
 	vkQueueSubmit(m_context.graphicsQueue, 1, &m_submitInfo, VK_NULL_HANDLE);
 
 	VkRenderBase::SubmitFrame();
-}
-
-void VkRenderBackend::Prepare()
-{
-	SetupDescriptorPool();
-	PrepareOffscreenFramebuffer();
-	PrepareUniformBuffers();
-	SetupLayoutsAndDescriptors();
-	PreparePipelines();
-	BuildCommandBuffers();
-	BuildOffscreenCommandBuffer();
 }
 
 #pragma endregion

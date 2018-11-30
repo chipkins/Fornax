@@ -70,6 +70,13 @@ private:
 		VkImage image;
 		VkDeviceMemory memory;
 		VkImageView view;
+		VkFormat format;
+		void Destroy(VkDevice device)
+		{
+			vkDestroyImage(device, image, nullptr);
+			vkDestroyImageView(device, view, nullptr);
+			vkFreeMemory(device, memory, nullptr);
+		}
 	};
 
 	struct FrameBuffer {
@@ -81,7 +88,16 @@ private:
 		VkDescriptorImageInfo descriptor;
 		VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
 		VkSemaphore semaphore = VK_NULL_HANDLE;
-	} m_offScreenFrameBuffer;
+	};
+
+	struct {
+		struct Offscreen : public FrameBuffer {
+			std::array<FrameBufferAttachment, 3> attachments;
+		} offscreen;
+		struct PostProcess : public FrameBuffer {
+			std::array<FrameBufferAttachment, 1> attachments;
+		} blur;
+	} m_framebuffers;
 
 	VkImage        m_textureImage;
 	VkImageView    m_textureImageView;
@@ -103,8 +119,8 @@ private:
 	void CreateIndexBuffer();
 
 	// Create a frame buffer attachment
-	//void CreateAttachment(VkFormat format, VkImageUsageFlagBits usage, FrameBufferAttachment *attachment, uint32_t width, uint32_t height);
-	void PrepareOffscreenFramebuffer();
+	void CreateAttachment(VkFormat format, VkImageUsageFlagBits usage, FrameBufferAttachment *attachment, uint32_t width, uint32_t height);
+	void PrepareOffscreenFramebuffers();
 	void BuildOffscreenCommandBuffer();
 	virtual void BuildCommandBuffers();
 	//void RebuildCommandBuffers();
@@ -116,7 +132,6 @@ private:
 	void SetupVertexInput();
 
 	void Draw();
-	void Prepare();
 
 	// Helper Functions
 };
