@@ -111,10 +111,10 @@ FornaxApp::FornaxApp()
 	int width, height;
 	glfwGetWindowSize(m_window, &width, &height);
 	m_camera = Camera(width, height);
-	vk::Model model = m_renderer->GetModelList()[0];
+	/*vk::Model model = m_renderer->GetModelList()[0];
 	m_softbody = new SBLattice(model, 0.25f, 0.25f, 11, 11, 25.0f, 0.75f);
 	m_plane.origin = glm::vec3(0,  0.5f, 0);
-	m_plane.normal = glm::vec3(0, -1.0f, 0);
+	m_plane.normal = glm::vec3(0, -1.0f, 0);*/
 
 	std::cout << "\nPress -W- to move the camera forward along the z axis" << std::endl;
 	std::cout << "Press -S- to move the camera backward along the z axis" << std::endl;
@@ -175,7 +175,7 @@ void FornaxApp::UpdateAndDraw()
 	frameTime = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 	dt = frameTime - prevFrameTime;
 
-	for (size_t i = 0; i < 11; ++i)
+	/*for (size_t i = 0; i < 11; ++i)
 	{
 		for (size_t j = 0; j < 11; ++j)
 		{
@@ -183,10 +183,10 @@ void FornaxApp::UpdateAndDraw()
 			if (m_physics.TestPointPlane(point->position, m_plane.origin, m_plane.normal))
 				m_physics.ResolveCollision(point, m_plane.normal);
 		}
-	}
+	}*/
 
 	m_camera.Update();
-	m_softbody->Update(dt);
+	//m_softbody->Update(dt);
 	m_renderer->UpdateUniformBuffers(m_camera, m_softbody->deformVecs, frameTime);
 	m_renderer->RequestFrameRender();
 

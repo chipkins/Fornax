@@ -68,10 +68,14 @@ void VkRenderBackend::Cleanup()
 	// Color attachments
 	for (auto attachment : m_framebuffers.offscreen.attachments)
 	{
-		vkDestroyImageView(m_device->logicalDevice, m_framebuffers.offscreen.color.view, nullptr);
-		vkDestroyImage(m_device->logicalDevice, m_framebuffers.offscreen.color.image, nullptr);
-		vkFreeMemory(m_device->logicalDevice, m_framebuffers.offscreen.color.memory, nullptr);
+		vkDestroyImageView(m_device->logicalDevice, attachment.view, nullptr);
+		vkDestroyImage(m_device->logicalDevice, attachment.image, nullptr);
+		vkFreeMemory(m_device->logicalDevice, attachment.memory, nullptr);
 	}
+
+	vkDestroyImageView(m_device->logicalDevice, m_framebuffers.offscreen.color.view, nullptr);
+	vkDestroyImage(m_device->logicalDevice, m_framebuffers.offscreen.color.image, nullptr);
+	vkFreeMemory(m_device->logicalDevice, m_framebuffers.offscreen.color.memory, nullptr);
 
 	// Depth attachment
 	vkDestroyImageView(m_device->logicalDevice, m_framebuffers.offscreen.depth.view, nullptr);
@@ -93,10 +97,10 @@ void VkRenderBackend::Cleanup()
 	vkDestroyDescriptorSetLayout(m_device->logicalDevice, m_descriptorSetLayouts.blur, nullptr);
 	vkDestroyDescriptorSetLayout(m_device->logicalDevice, m_descriptorSetLayouts.scene, nullptr);
 
-	vkDestroyBuffer(m_device->logicalDevice, m_vertexBuffer, nullptr);
+	/*vkDestroyBuffer(m_device->logicalDevice, m_vertexBuffer, nullptr);
 	vkFreeMemory(m_device->logicalDevice, m_vertexBufferMemory, nullptr);
 	vkDestroyBuffer(m_device->logicalDevice, m_indexBuffer, nullptr);
-	vkFreeMemory(m_device->logicalDevice, m_indexBufferMemory, nullptr);
+	vkFreeMemory(m_device->logicalDevice, m_indexBufferMemory, nullptr);*/
 
 	VkRenderBase::Cleanup();
 }

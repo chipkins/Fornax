@@ -1,7 +1,5 @@
 #version 450
 
-precision mediump float;
-
 const int MAX_STEPS = 255;
 const float MIN_DIST = 0.2;
 const float MAX_DIST = 20.0;
@@ -76,7 +74,7 @@ float sdSphere(vec3 pos, float radius)
 
 float sdCube(vec3 pos, vec3 bounds)
 {
-	vec3 d = abs(pos) - bounds;
+	vec3 d = abs(pos) - bounds/2.0;
 	return length(max(d, 0.0)) + min(max(d.x, max(d.y, d.z)), 0.0);
 }
 
@@ -105,7 +103,7 @@ float sdIntersect(float distA, float distB)
 	return max(distA, distB);
 }
 
-float sdDifference(float distA, distB)
+float sdDifference(float distA, float distB)
 {
 	return max(distA, -distB);
 }
@@ -122,15 +120,15 @@ float scene(vec3 pos)
 	float ballRadius = 0.3;
 
 	float res = sdCylinder(pos, 2.0, cylinderRadius);
-	res = sdUnion(res, sdCylinder(rotateX(radians(90.0)) * pos, 2.0, cylinderRadius);
-	res = sdUnion(res, sdCylinder(rotateY(radians(90.0)) * pos, 2.0, cylinderRadius);
-	res = sdDifference(res, sdIntersect(sdCube(pos-vec3(0.0,0.0,0.0),vec3(0.4)), sdSphere(pos-vec3(-1.0,0.0,0.0), 0.5)));
-	res = sdUnion(res, sdSphere(pos - vec3(ballOffset, 0.0, 0.0)), ballRadius);
-	res = sdUnion(res, sdSphere(pos + vec3(ballOffset, 0.0, 0.0)), ballRadius);
-	res = sdUnion(res, sdSphere(pos - vec3(0.0, ballOffset, 0.0)), ballRadius);
-	res = sdUnion(res, sdSphere(pos + vec3(0.0, ballOffset, 0.0)), ballRadius);
-	res = sdUnion(res, sdSphere(pos - vec3(0.0, 0.0, ballOffset)), ballRadius);
-	res = sdUnion(res, sdSphere(pos + vec3(0.0, 0.0, ballOffset)), ballRadius);
+	res = sdUnion(res, sdCylinder(rotateX(radians(90.0)) * pos, 2.0, cylinderRadius));
+	res = sdUnion(res, sdCylinder(rotateY(radians(90.0)) * pos, 2.0, cylinderRadius));
+	res = sdDifference(sdIntersect(sdCube(pos, vec3(1.8)), sdSphere(pos, 1.2)), res);
+	res = sdUnion(res, sdSphere(pos - vec3(ballOffset, 0.0, 0.0), ballRadius));
+	res = sdUnion(res, sdSphere(pos + vec3(ballOffset, 0.0, 0.0), ballRadius));
+	res = sdUnion(res, sdSphere(pos - vec3(0.0, ballOffset, 0.0), ballRadius));
+	res = sdUnion(res, sdSphere(pos + vec3(0.0, ballOffset, 0.0), ballRadius));
+	res = sdUnion(res, sdSphere(pos - vec3(0.0, 0.0, ballOffset), ballRadius));
+	res = sdUnion(res, sdSphere(pos + vec3(0.0, 0.0, ballOffset), ballRadius));
 	return res;
 }
 
