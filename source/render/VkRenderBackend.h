@@ -1,5 +1,7 @@
 #pragma once
 
+#include <chrono>
+
 #include "VkRenderBase.h"
 #include "VulkanBuffer.h"
 #include "VulkanModel.h"
@@ -32,6 +34,7 @@ private:
 		glm::vec3 eye;
 		float fov;
 		glm::vec2 resolution;
+		float dt;
 	} uboScene;
 
 	struct UBOBlur

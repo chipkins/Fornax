@@ -677,6 +677,7 @@ void VkRenderBackend::UpdateUniformBuffers(Camera camera, glm::vec3* deformVecs,
 	uboScene.fov = 45.0f;
 	uboScene.eye = camera.getPos();
 	uboScene.resolution = glm::vec2(m_window->width, m_window->height);
+	uboScene.dt = dt;
 
 	if (!m_uniformBuffers.scene.mapped)
 		m_uniformBuffers.scene.map();
