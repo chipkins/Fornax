@@ -18,89 +18,81 @@
 
 #pragma endregion
 
-struct Resources
-{
-	vk::PipelineLayoutList* pipelineLayouts;
-	vk::PipelineList *pipelines;
-	vk::DescriptorSetLayoutList *descriptorSetLayouts;
-	vk::DescriptorSetList * descriptorSets;
-} resources;
-
 void VkRenderBackend::Init(GLFWwindow* window)
 {
 	VkRenderBase::Init(window);
 
 	SetupDescriptorPool();
 
-	resources.pipelineLayouts = new vk::PipelineLayoutList(m_device->logicalDevice);
-	resources.pipelines = new vk::PipelineList(m_device->logicalDevice);
-	resources.descriptorSetLayouts = new vk::DescriptorSetLayoutList(m_device->logicalDevice);
-	resources.descriptorSets = new vk::DescriptorSetList(m_device->logicalDevice, m_descriptorPool);
+	m_resources.pipelineLayouts = new vk::PipelineLayoutList(m_device->logicalDevice);
+	m_resources.pipelines = new vk::PipelineList(m_device->logicalDevice);
+	m_resources.descriptorSetLayouts = new vk::DescriptorSetLayoutList(m_device->logicalDevice);
+	m_resources.descriptorSets = new vk::DescriptorSetList(m_device->logicalDevice, m_descriptorPool);
 
-	CreateTextureImage();
+	/*CreateTextureImage();
 	CreateTextureImageView();
-	CreateTextureSampler();
+	CreateTextureSampler();*/
 
 	PrepareOffscreenFramebuffers();
 	PrepareUniformBuffers();
 	SetupLayoutsAndDescriptors();
 	PreparePipelines();
 	BuildCommandBuffers();
-	BuildOffscreenCommandBuffer();
+	BuildDeferredCommandBuffer();
+
+	SetupLights();
 }
 
 void VkRenderBackend::Cleanup()
 {
-	delete resources.pipelineLayouts;
-	delete resources.pipelines;
-	delete resources.descriptorSetLayouts;
-	delete resources.descriptorSets;
+	delete m_resources.pipelineLayouts;
+	delete m_resources.pipelines;
+	delete m_resources.descriptorSetLayouts;
+	delete m_resources.descriptorSets;
 
 	m_uniformBuffers.blur.destroy();
 	m_uniformBuffers.scene.destroy();
+	m_uniformBuffers.lights.destroy();
 
-	vkDestroyImageView(m_device->logicalDevice, m_textureImageView, nullptr);
+	/*vkDestroyImageView(m_device->logicalDevice, m_textureImageView, nullptr);
 	vkDestroyImage(m_device->logicalDevice, m_textureImage, nullptr);
 	vkFreeMemory(m_device->logicalDevice, m_textureImageMemory, nullptr);
-	vkDestroySampler(m_device->logicalDevice, m_textureSampler, nullptr);
+	vkDestroySampler(m_device->logicalDevice, m_textureSampler, nullptr);*/
 
 	// Cleanup offscreen framebuffer
 	// Color attachments
-	for (auto attachment : m_framebuffers.offscreen.attachments)
+	for (auto& attachment : m_framebuffers.offscreen.attachments)
 	{
 		vkDestroyImageView(m_device->logicalDevice, attachment.view, nullptr);
 		vkDestroyImage(m_device->logicalDevice, attachment.image, nullptr);
 		vkFreeMemory(m_device->logicalDevice, attachment.memory, nullptr);
 	}
 
-	vkDestroyImageView(m_device->logicalDevice, m_framebuffers.offscreen.color.view, nullptr);
-	vkDestroyImage(m_device->logicalDevice, m_framebuffers.offscreen.color.image, nullptr);
-	vkFreeMemory(m_device->logicalDevice, m_framebuffers.offscreen.color.memory, nullptr);
+	vkDestroyImageView(m_device->logicalDevice, m_framebuffers.lights.attachments[0].view, nullptr);
+	vkDestroyImage(m_device->logicalDevice, m_framebuffers.lights.attachments[0].image, nullptr);
+	vkFreeMemory(m_device->logicalDevice, m_framebuffers.lights.attachments[0].memory, nullptr);
 
 	// Depth attachment
 	vkDestroyImageView(m_device->logicalDevice, m_framebuffers.offscreen.depth.view, nullptr);
 	vkDestroyImage(m_device->logicalDevice, m_framebuffers.offscreen.depth.image, nullptr);
 	vkFreeMemory(m_device->logicalDevice, m_framebuffers.offscreen.depth.memory, nullptr);
 
-	vkFreeCommandBuffers(m_device->logicalDevice, m_commandPool, 1, &m_framebuffers.offscreen.commandBuffer);
+	vkDestroyImageView(m_device->logicalDevice, m_framebuffers.lights.depth.view, nullptr);
+	vkDestroyImage(m_device->logicalDevice, m_framebuffers.lights.depth.image, nullptr);
+	vkFreeMemory(m_device->logicalDevice, m_framebuffers.lights.depth.memory, nullptr);
+
+	vkFreeCommandBuffers(m_device->logicalDevice, m_commandPool, 1, &m_offscreenCommandBuffer);
+	vkDestroySemaphore(m_device->logicalDevice, m_offscreenSemaphore, nullptr);
+
+	// Cleanup offscreen framebuffer
 	vkDestroyRenderPass(m_device->logicalDevice, m_framebuffers.offscreen.renderPass, nullptr);
-	vkDestroySemaphore(m_device->logicalDevice, m_framebuffers.offscreen.semaphore, nullptr);
 	vkDestroyFramebuffer(m_device->logicalDevice, m_framebuffers.offscreen.frameBuffer, nullptr);
-	vkDestroySampler(m_device->logicalDevice, m_framebuffers.offscreen.sampler, nullptr);
+	//vkDestroySampler(m_device->logicalDevice, m_framebuffers.offscreen.sampler, nullptr);
 
-	vkDestroyPipeline(m_device->logicalDevice, m_pipelines.blur, nullptr);
-	vkDestroyPipeline(m_device->logicalDevice, m_pipelines.scene, nullptr);
-
-	vkDestroyPipelineLayout(m_device->logicalDevice, m_pipelineLayouts.blur, nullptr);
-	vkDestroyPipelineLayout(m_device->logicalDevice, m_pipelineLayouts.scene, nullptr);
-
-	vkDestroyDescriptorSetLayout(m_device->logicalDevice, m_descriptorSetLayouts.blur, nullptr);
-	vkDestroyDescriptorSetLayout(m_device->logicalDevice, m_descriptorSetLayouts.scene, nullptr);
-
-	/*vkDestroyBuffer(m_device->logicalDevice, m_vertexBuffer, nullptr);
-	vkFreeMemory(m_device->logicalDevice, m_vertexBufferMemory, nullptr);
-	vkDestroyBuffer(m_device->logicalDevice, m_indexBuffer, nullptr);
-	vkFreeMemory(m_device->logicalDevice, m_indexBufferMemory, nullptr);*/
+	// Cleanup Post-Proccess blur framebuffer
+	vkDestroyRenderPass(m_device->logicalDevice, m_framebuffers.lights.renderPass, nullptr);
+	vkDestroyFramebuffer(m_device->logicalDevice, m_framebuffers.lights.frameBuffer, nullptr);
+	//vkDestroySampler(m_device->logicalDevice, m_framebuffers.blur.sampler, nullptr);
 
 	VkRenderBase::Cleanup();
 }
@@ -125,48 +117,18 @@ void VkRenderBackend::CreateAttachment(VkFormat format, VkImageUsageFlagBits usa
 
 	assert(aspectMask > 0);
 
-	VkImageCreateInfo image = vk::initializers::ImageCreateInfo();
-	image.imageType = VK_IMAGE_TYPE_2D;
-	image.format = format;
-	image.extent.width = width;
-	image.extent.height = height;
-	image.extent.depth = 1;
-	image.mipLevels = 1;
-	image.arrayLayers = 1;
-	image.samples = VK_SAMPLE_COUNT_1_BIT;
-	image.tiling = VK_IMAGE_TILING_OPTIMAL;
-	image.usage = usage | VK_IMAGE_USAGE_SAMPLED_BIT;
+	m_device->CreateImage(512, 512, format, VK_IMAGE_TILING_OPTIMAL, usage | VK_IMAGE_USAGE_SAMPLED_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, attachment->image, attachment->memory);
 
-	vkCreateImage(m_device->logicalDevice, &image, nullptr, &attachment->image);
-
-	VkMemoryAllocateInfo memAlloc = vk::initializers::MemoryAllocateInfo();
-	VkMemoryRequirements memReqs;
-	vkGetImageMemoryRequirements(m_device->logicalDevice, attachment->image, &memReqs);
-	memAlloc.allocationSize = memReqs.size;
-	memAlloc.memoryTypeIndex = m_device->GetMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-	vkAllocateMemory(m_device->logicalDevice, &memAlloc, nullptr, &attachment->memory);
-	vkBindImageMemory(m_device->logicalDevice, attachment->image, attachment->memory, 0);
-
-	VkImageViewCreateInfo imageView = vk::initializers::ImageViewCreateInfo();
-	imageView.viewType = VK_IMAGE_VIEW_TYPE_2D;
-	imageView.format = format;
-	imageView.subresourceRange = {};
-	imageView.subresourceRange.aspectMask = aspectMask;
-	imageView.subresourceRange.baseMipLevel = 0;
-	imageView.subresourceRange.levelCount = 1;
-	imageView.subresourceRange.baseArrayLayer = 0;
-	imageView.subresourceRange.layerCount = 1;
-	imageView.image = attachment->image;
-	vkCreateImageView(m_device->logicalDevice, &imageView, nullptr, &attachment->view);
+	attachment->view = m_device->CreateImageView(attachment->image, format, aspectMask);
 }
 
 // Setup the offscreen framebuffer for rendering the blurred scene
 // The color attachment of this framebuffer will then be used to sample frame in the fragment shader of the final pass
 void VkRenderBackend::PrepareOffscreenFramebuffers()
 {
-	m_framebuffers.offscreen.width = m_framebuffers.blur.width = 512;
-	m_framebuffers.offscreen.height = m_framebuffers.blur.height = 512;
+	m_framebuffers.offscreen.width = m_framebuffers.lights.width = 512;
+	m_framebuffers.offscreen.height = m_framebuffers.lights.height = 512;
 	
 	// Color attachment
 	CreateAttachment(VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, &m_framebuffers.offscreen.attachments[0], 512, 512);
@@ -178,40 +140,147 @@ void VkRenderBackend::PrepareOffscreenFramebuffers()
 
 	CreateAttachment(depthFormat, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, &m_framebuffers.offscreen.depth, 512, 512);
 
-	VkImageCreateInfo image = vk::initializers::ImageCreateInfo();
-	image.imageType = VK_IMAGE_TYPE_2D;
-	image.format = VK_FORMAT_R8G8B8A8_UNORM;
-	image.extent.width = m_framebuffers.offscreen.width;
-	image.extent.height = m_framebuffers.offscreen.height;
-	image.extent.depth = 1;
-	image.mipLevels = 1;
-	image.arrayLayers = 1;
-	image.samples = VK_SAMPLE_COUNT_1_BIT;
-	image.tiling = VK_IMAGE_TILING_OPTIMAL;
-	// We will sample directly from the color attachment
-	image.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+	// Create a separate render pass for the offscreen rendering G-Buffer
+	{
+		std::array<VkAttachmentDescription, 4> attchmentDescriptions = {};
 
-	VkMemoryAllocateInfo memAlloc = vk::initializers::MemoryAllocateInfo();
-	VkMemoryRequirements memReqs;
+		for (uint32_t i = 0; i < static_cast<uint32_t>(attchmentDescriptions.size()); ++i)
+		{
+			// Color attachment
+			attchmentDescriptions[i].samples = VK_SAMPLE_COUNT_1_BIT;
+			attchmentDescriptions[i].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+			attchmentDescriptions[i].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+			attchmentDescriptions[i].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+			attchmentDescriptions[i].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+			attchmentDescriptions[i].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+			attchmentDescriptions[i].finalLayout = (i == 3) ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		}
 
-	vkCreateImage(m_device->logicalDevice, &image, nullptr, &m_framebuffers.offscreen.color.image);
-	vkGetImageMemoryRequirements(m_device->logicalDevice, m_framebuffers.offscreen.color.image, &memReqs);
-	memAlloc.allocationSize = memReqs.size;
-	memAlloc.memoryTypeIndex = m_device->GetMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	vkAllocateMemory(m_device->logicalDevice, &memAlloc, nullptr, &m_framebuffers.offscreen.color.memory);
-	vkBindImageMemory(m_device->logicalDevice, m_framebuffers.offscreen.color.image, m_framebuffers.offscreen.color.memory, 0);
+		attchmentDescriptions[0].format = m_framebuffers.offscreen.attachments[0].format;
+		attchmentDescriptions[1].format = m_framebuffers.offscreen.attachments[1].format;
+		attchmentDescriptions[2].format = m_framebuffers.offscreen.attachments[2].format;
+		attchmentDescriptions[3].format = m_framebuffers.offscreen.depth.format;
 
-	VkImageViewCreateInfo colorImageView = vk::initializers::ImageViewCreateInfo();
-	colorImageView.viewType = VK_IMAGE_VIEW_TYPE_2D;
-	colorImageView.format = VK_FORMAT_R8G8B8A8_UNORM;
-	colorImageView.subresourceRange = {};
-	colorImageView.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	colorImageView.subresourceRange.baseMipLevel = 0;
-	colorImageView.subresourceRange.levelCount = 1;
-	colorImageView.subresourceRange.baseArrayLayer = 0;
-	colorImageView.subresourceRange.layerCount = 1;
-	colorImageView.image = m_framebuffers.offscreen.color.image;
-	vkCreateImageView(m_device->logicalDevice, &colorImageView, nullptr, &m_framebuffers.offscreen.color.view);
+		std::vector<VkAttachmentReference> colorReferences;
+		colorReferences.push_back({ 0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
+		colorReferences.push_back({ 1, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
+		colorReferences.push_back({ 2, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
+		VkAttachmentReference depthReference = { 3, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL };
+
+		VkSubpassDescription subpassDescription = {};
+		subpassDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+		subpassDescription.colorAttachmentCount = static_cast<uint32_t>(colorReferences.size());
+		subpassDescription.pColorAttachments = colorReferences.data();
+		subpassDescription.pDepthStencilAttachment = &depthReference;
+
+		// Use subpass dependencies for layout transitions
+		std::array<VkSubpassDependency, 2> dependencies;
+
+		dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
+		dependencies[0].dstSubpass = 0;
+		dependencies[0].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+		dependencies[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		dependencies[0].srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+		dependencies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		dependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+		dependencies[1].srcSubpass = 0;
+		dependencies[1].dstSubpass = VK_SUBPASS_EXTERNAL;
+		dependencies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		dependencies[1].dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+		dependencies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		dependencies[1].dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+		dependencies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+		// Create the actual renderpass
+		VkRenderPassCreateInfo renderPassInfo = {};
+		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+		renderPassInfo.attachmentCount = static_cast<uint32_t>(attchmentDescriptions.size());
+		renderPassInfo.pAttachments = attchmentDescriptions.data();
+		renderPassInfo.subpassCount = 1;
+		renderPassInfo.pSubpasses = &subpassDescription;
+		renderPassInfo.dependencyCount = static_cast<uint32_t>(dependencies.size());
+		renderPassInfo.pDependencies = dependencies.data();
+
+		vkCreateRenderPass(m_device->logicalDevice, &renderPassInfo, nullptr, &m_framebuffers.offscreen.renderPass);
+
+		std::array<VkImageView, 4> attachments;
+		attachments[0] = m_framebuffers.offscreen.attachments[0].view;
+		attachments[1] = m_framebuffers.offscreen.attachments[1].view;
+		attachments[2] = m_framebuffers.offscreen.attachments[2].view;
+		attachments[3] = m_framebuffers.offscreen.depth.view;
+
+		VkFramebufferCreateInfo fbufCreateInfo = vk::initializers::FramebufferCreateInfo();
+		fbufCreateInfo.renderPass = m_framebuffers.offscreen.renderPass;
+		fbufCreateInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+		fbufCreateInfo.pAttachments = attachments.data();
+		fbufCreateInfo.width = m_framebuffers.offscreen.width;
+		fbufCreateInfo.height = m_framebuffers.offscreen.height;
+		fbufCreateInfo.layers = 1;
+
+		vkCreateFramebuffer(m_device->logicalDevice, &fbufCreateInfo, nullptr, &m_framebuffers.offscreen.frameBuffer);
+	}
+
+	CreateAttachment(VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, &m_framebuffers.lights.attachments[0], 512, 512);
+
+	// Create a separate render pass for the offscreen rendering Post-Proccess Blur
+	{
+		VkAttachmentDescription attachmentDescription{};
+		attachmentDescription.format = m_framebuffers.lights.attachments[0].format;
+		attachmentDescription.samples = VK_SAMPLE_COUNT_1_BIT;
+		attachmentDescription.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		attachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		attachmentDescription.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		attachmentDescription.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		attachmentDescription.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		attachmentDescription.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+		VkAttachmentReference colorReference = { 0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
+
+		VkSubpassDescription subpass = {};
+		subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+		subpass.pColorAttachments = &colorReference;
+		subpass.colorAttachmentCount = 1;
+
+		std::array<VkSubpassDependency, 2> dependencies;
+
+		dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
+		dependencies[0].dstSubpass = 0;
+		dependencies[0].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+		dependencies[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		dependencies[0].srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+		dependencies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		dependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+		dependencies[1].srcSubpass = 0;
+		dependencies[1].dstSubpass = VK_SUBPASS_EXTERNAL;
+		dependencies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		dependencies[1].dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+		dependencies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		dependencies[1].dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+		dependencies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+		VkRenderPassCreateInfo renderPassInfo = {};
+		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+		renderPassInfo.pAttachments = &attachmentDescription;
+		renderPassInfo.attachmentCount = 1;
+		renderPassInfo.subpassCount = 1;
+		renderPassInfo.pSubpasses = &subpass;
+		renderPassInfo.dependencyCount = 2;
+		renderPassInfo.pDependencies = dependencies.data();
+		
+		vkCreateRenderPass(m_device->logicalDevice, &renderPassInfo, nullptr, &m_framebuffers.lights.renderPass);
+
+		VkFramebufferCreateInfo fbufCreateInfo = vk::initializers::FramebufferCreateInfo();
+		fbufCreateInfo.renderPass = m_framebuffers.lights.renderPass;
+		fbufCreateInfo.pAttachments = &m_framebuffers.lights.attachments[0].view;
+		fbufCreateInfo.attachmentCount = 1;
+		fbufCreateInfo.width = m_framebuffers.lights.width;
+		fbufCreateInfo.height = m_framebuffers.lights.height;
+		fbufCreateInfo.layers = 1;
+		
+		vkCreateFramebuffer(m_device->logicalDevice, &fbufCreateInfo, nullptr, &m_framebuffers.lights.frameBuffer);
+	}
 
 	// Create sampler to sample from the attachment in the fragment shader
 	VkSamplerCreateInfo samplerInfo = vk::initializers::SamplerCreateInfo();
@@ -226,118 +295,13 @@ void VkRenderBackend::PrepareOffscreenFramebuffers()
 	samplerInfo.minLod = 0.0f;
 	samplerInfo.maxLod = 1.0f;
 	samplerInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
-	vkCreateSampler(m_device->logicalDevice, &samplerInfo, nullptr, &m_framebuffers.offscreen.sampler);
-
-	// Depth stencil attachment
-	image.format = depthFormat;
-	image.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-
-	vkCreateImage(m_device->logicalDevice, &image, nullptr, &m_framebuffers.offscreen.depth.image);
-	vkGetImageMemoryRequirements(m_device->logicalDevice, m_framebuffers.offscreen.depth.image, &memReqs);
-	memAlloc.allocationSize = memReqs.size;
-	memAlloc.memoryTypeIndex = m_device->GetMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	vkAllocateMemory(m_device->logicalDevice, &memAlloc, nullptr, &m_framebuffers.offscreen.depth.memory);
-	vkBindImageMemory(m_device->logicalDevice, m_framebuffers.offscreen.depth.image, m_framebuffers.offscreen.depth.memory, 0);
-
-	VkImageViewCreateInfo depthStencilView = vk::initializers::ImageViewCreateInfo();
-	depthStencilView.viewType = VK_IMAGE_VIEW_TYPE_2D;
-	depthStencilView.format = depthFormat;
-	depthStencilView.flags = 0;
-	depthStencilView.subresourceRange = {};
-	depthStencilView.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
-	depthStencilView.subresourceRange.baseMipLevel = 0;
-	depthStencilView.subresourceRange.levelCount = 1;
-	depthStencilView.subresourceRange.baseArrayLayer = 0;
-	depthStencilView.subresourceRange.layerCount = 1;
-	depthStencilView.image = m_framebuffers.offscreen.depth.image;
-	vkCreateImageView(m_device->logicalDevice, &depthStencilView, nullptr, &m_framebuffers.offscreen.depth.view);
-
-	// Create a separate render pass for the offscreen rendering as it may differ from the one used for scene rendering
-
-	std::array<VkAttachmentDescription, 2> attchmentDescriptions = {};
-	// Color attachment
-	attchmentDescriptions[0].format = VK_FORMAT_R8G8B8A8_UNORM;
-	attchmentDescriptions[0].samples = VK_SAMPLE_COUNT_1_BIT;
-	attchmentDescriptions[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	attchmentDescriptions[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-	attchmentDescriptions[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-	attchmentDescriptions[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	attchmentDescriptions[0].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	attchmentDescriptions[0].finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	// Depth attachment
-	attchmentDescriptions[1].format = depthFormat;
-	attchmentDescriptions[1].samples = VK_SAMPLE_COUNT_1_BIT;
-	attchmentDescriptions[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	attchmentDescriptions[1].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	attchmentDescriptions[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-	attchmentDescriptions[1].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	attchmentDescriptions[1].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	attchmentDescriptions[1].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-	VkAttachmentReference colorReference = { 0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
-	VkAttachmentReference depthReference = { 1, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL };
-
-	VkSubpassDescription subpassDescription = {};
-	subpassDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-	subpassDescription.colorAttachmentCount = 1;
-	subpassDescription.pColorAttachments = &colorReference;
-	subpassDescription.pDepthStencilAttachment = &depthReference;
-
-	// Use subpass dependencies for layout transitions
-	std::array<VkSubpassDependency, 2> dependencies;
-
-	dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
-	dependencies[0].dstSubpass = 0;
-	dependencies[0].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-	dependencies[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	dependencies[0].srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-	dependencies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-	dependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
-
-	dependencies[1].srcSubpass = 0;
-	dependencies[1].dstSubpass = VK_SUBPASS_EXTERNAL;
-	dependencies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	dependencies[1].dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-	dependencies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-	dependencies[1].dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-	dependencies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
-
-	// Create the actual renderpass
-	VkRenderPassCreateInfo renderPassInfo = {};
-	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-	renderPassInfo.attachmentCount = static_cast<uint32_t>(attchmentDescriptions.size());
-	renderPassInfo.pAttachments = attchmentDescriptions.data();
-	renderPassInfo.subpassCount = 1;
-	renderPassInfo.pSubpasses = &subpassDescription;
-	renderPassInfo.dependencyCount = static_cast<uint32_t>(dependencies.size());
-	renderPassInfo.pDependencies = dependencies.data();
-
-	vkCreateRenderPass(m_device->logicalDevice, &renderPassInfo, nullptr, &m_framebuffers.offscreen.renderPass);
-
-	VkImageView attachments[2];
-	attachments[0] = m_framebuffers.offscreen.color.view;
-	attachments[1] = m_framebuffers.offscreen.depth.view;
-
-	VkFramebufferCreateInfo fbufCreateInfo = vk::initializers::FramebufferCreateInfo();
-	fbufCreateInfo.renderPass = m_framebuffers.offscreen.renderPass;
-	fbufCreateInfo.attachmentCount = 2;
-	fbufCreateInfo.pAttachments = attachments;
-	fbufCreateInfo.width = m_framebuffers.offscreen.width;
-	fbufCreateInfo.height = m_framebuffers.offscreen.height;
-	fbufCreateInfo.layers = 1;
-
-	vkCreateFramebuffer(m_device->logicalDevice, &fbufCreateInfo, nullptr, &m_framebuffers.offscreen.frameBuffer);
-
-	// Fill a descriptor for later use in a descriptor set 
-	m_framebuffers.offscreen.descriptor.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	m_framebuffers.offscreen.descriptor.imageView = m_framebuffers.offscreen.color.view;
-	m_framebuffers.offscreen.descriptor.sampler = m_framebuffers.offscreen.sampler;
+	vkCreateSampler(m_device->logicalDevice, &samplerInfo, nullptr, &m_colorSampler);
 }
 
 // Sets up the command buffer that renders the scene to the offscreen frame buffer
-void VkRenderBackend::BuildOffscreenCommandBuffer()
+void VkRenderBackend::BuildDeferredCommandBuffer()
 {
-	if (m_framebuffers.offscreen.commandBuffer == VK_NULL_HANDLE)
+	if (m_offscreenCommandBuffer == VK_NULL_HANDLE)
 	{
 		VkCommandBufferAllocateInfo cmdBufAllocateInfo =
 			vk::initializers::CommandBufferAllocateInfo(
@@ -345,46 +309,73 @@ void VkRenderBackend::BuildOffscreenCommandBuffer()
 				VK_COMMAND_BUFFER_LEVEL_PRIMARY,
 				1);
 
-		vkAllocateCommandBuffers(m_device->logicalDevice, &cmdBufAllocateInfo, &m_framebuffers.offscreen.commandBuffer);
+		vkAllocateCommandBuffers(m_device->logicalDevice, &cmdBufAllocateInfo, &m_offscreenCommandBuffer);
 	}
-	if (m_framebuffers.offscreen.semaphore == VK_NULL_HANDLE)
+	if (m_offscreenSemaphore == VK_NULL_HANDLE)
 	{
 		VkSemaphoreCreateInfo semaphoreCreateInfo = vk::initializers::SemaphoreCreateInfo();
-		vkCreateSemaphore(m_device->logicalDevice, &semaphoreCreateInfo, nullptr, &m_framebuffers.offscreen.semaphore);
+		vkCreateSemaphore(m_device->logicalDevice, &semaphoreCreateInfo, nullptr, &m_offscreenSemaphore);
 	}
 
 	VkCommandBufferBeginInfo cmdBufInfo = vk::initializers::CommandBufferBeginInfo();
 
-	VkClearValue clearValues[2];
+	// First Pass : G-Buffer Scene
+	std::array<VkClearValue, 4> clearValues = {};
 	clearValues[0].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
-	clearValues[1].depthStencil = { 1.0f, 0 };
+	clearValues[1].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
+	clearValues[2].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
+	clearValues[3].depthStencil = { 1.0f, 0 };
 
 	VkRenderPassBeginInfo renderPassBeginInfo = vk::initializers::RenderPassBeginInfo();
 	renderPassBeginInfo.renderPass = m_framebuffers.offscreen.renderPass;
 	renderPassBeginInfo.framebuffer = m_framebuffers.offscreen.frameBuffer;
 	renderPassBeginInfo.renderArea.extent.width = m_framebuffers.offscreen.width;
 	renderPassBeginInfo.renderArea.extent.height = m_framebuffers.offscreen.height;
-	renderPassBeginInfo.clearValueCount = 2;
-	renderPassBeginInfo.pClearValues = clearValues;
+	renderPassBeginInfo.clearValueCount = clearValues.size();
+	renderPassBeginInfo.pClearValues = clearValues.data();
 
-	vkBeginCommandBuffer(m_framebuffers.offscreen.commandBuffer, &cmdBufInfo);
+	vkBeginCommandBuffer(m_offscreenCommandBuffer, &cmdBufInfo);
 
 	VkViewport viewport = vk::initializers::Viewport((float)m_framebuffers.offscreen.width, (float)m_framebuffers.offscreen.height, 0.0f, 1.0f);
-	vkCmdSetViewport(m_framebuffers.offscreen.commandBuffer, 0, 1, &viewport);
+	vkCmdSetViewport(m_offscreenCommandBuffer, 0, 1, &viewport);
 
 	VkRect2D scissor = vk::initializers::Rect2D(m_framebuffers.offscreen.width, m_framebuffers.offscreen.height, 0, 0);
-	vkCmdSetScissor(m_framebuffers.offscreen.commandBuffer, 0, 1, &scissor);
+	vkCmdSetScissor(m_offscreenCommandBuffer, 0, 1, &scissor);
 
-	vkCmdBeginRenderPass(m_framebuffers.offscreen.commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+	vkCmdBeginRenderPass(m_offscreenCommandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-	vkCmdBindDescriptorSets(m_framebuffers.offscreen.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayouts.scene, 0, 1, &m_descriptorSets.scene, 0, NULL);
-	vkCmdBindPipeline(m_framebuffers.offscreen.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelines.scene);
+	vkCmdBindDescriptorSets(m_offscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_resources.pipelineLayouts->get("scene"), 0, 1, m_resources.descriptorSets->getPtr("scene"), 0, NULL);
+	vkCmdBindPipeline(m_offscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_resources.pipelines->get("scene"));
 
-	vkCmdDraw(m_framebuffers.offscreen.commandBuffer, 3, 1, 0, 0);
+	vkCmdDraw(m_offscreenCommandBuffer, 3, 1, 0, 0);
 
-	vkCmdEndRenderPass(m_framebuffers.offscreen.commandBuffer);
+	vkCmdEndRenderPass(m_offscreenCommandBuffer);
 
-	vkEndCommandBuffer(m_framebuffers.offscreen.commandBuffer);
+	// Second Pass : Post-Proccess Blur
+	clearValues[0].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
+	clearValues[1].depthStencil = { 1.0f, 0 };
+
+	renderPassBeginInfo.framebuffer = m_framebuffers.lights.frameBuffer;
+	renderPassBeginInfo.renderPass = m_framebuffers.lights.renderPass;
+	renderPassBeginInfo.renderArea.extent.width = m_framebuffers.lights.width;
+	renderPassBeginInfo.renderArea.extent.height = m_framebuffers.lights.height;
+	renderPassBeginInfo.clearValueCount = 2;
+	renderPassBeginInfo.pClearValues = clearValues.data();
+
+	vkCmdBeginRenderPass(m_offscreenCommandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+	viewport = vk::initializers::Viewport((float)m_framebuffers.lights.width, (float)m_framebuffers.lights.height, 0.0f, 1.0f);
+	vkCmdSetViewport(m_offscreenCommandBuffer, 0, 1, &viewport);
+	scissor = vk::initializers::Rect2D(m_framebuffers.lights.width, m_framebuffers.lights.height, 0, 0);
+	vkCmdSetScissor(m_offscreenCommandBuffer, 0, 1, &scissor);
+
+	vkCmdBindDescriptorSets(m_offscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_resources.pipelineLayouts->get("lights"), 0, 1, m_resources.descriptorSets->getPtr("lights"), 0, NULL);
+	vkCmdBindPipeline(m_offscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_resources.pipelines->get("lights"));
+	vkCmdDraw(m_offscreenCommandBuffer, 3, 1, 0, 0);
+
+	vkCmdEndRenderPass(m_offscreenCommandBuffer);
+
+	vkEndCommandBuffer(m_offscreenCommandBuffer);
 }
 
 void VkRenderBackend::BuildCommandBuffers()
@@ -422,16 +413,12 @@ void VkRenderBackend::BuildCommandBuffers()
 		VkDeviceSize offsets[1] = { 0 };
 
 		// 3D scene
-		vkCmdBindDescriptorSets(m_commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayouts.scene, 0, 1, &m_descriptorSets.scene, 0, NULL);
-		vkCmdBindPipeline(m_commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelines.scene);
-
-		/*vkCmdBindVertexBuffers(m_commandBuffers[i], 0, 1, &m_vertexBuffer, offsets);
-		vkCmdBindIndexBuffer(m_commandBuffers[i], m_indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-		vkCmdDrawIndexed(m_commandBuffers[i], m_models[0].getNumIndices(), 1, 0, 0, 0);*/
+		/*vkCmdBindDescriptorSets(m_commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_resources.pipelineLayouts->get("scene"), 0, 1, m_resources.descriptorSets->getPtr("scene"), 0, NULL);
+		vkCmdBindPipeline(m_commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_resources.pipelines->get("scene"));*/
 
 		// Fullscreen triangle (clipped to a quad) with radial blur
-		vkCmdBindDescriptorSets(m_commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayouts.blur, 0, 1, &m_descriptorSets.blur, 0, NULL);
-		vkCmdBindPipeline(m_commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelines.blur);
+		vkCmdBindDescriptorSets(m_commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_resources.pipelineLayouts->get("blur"), 0, 1, m_resources.descriptorSets->getPtr("blur"), 0, NULL);
+		vkCmdBindPipeline(m_commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_resources.pipelines->get("blur"));
 		vkCmdDraw(m_commandBuffers[i], 3, 1, 0, 0);
 
 		vkCmdEndRenderPass(m_commandBuffers[i]);
@@ -446,14 +433,14 @@ void VkRenderBackend::SetupDescriptorPool()
 	std::vector<VkDescriptorPoolSize> poolSizes =
 	{
 		vk::initializers::DescriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 4),
-		vk::initializers::DescriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 6)
+		vk::initializers::DescriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 10)
 	};
 
 	VkDescriptorPoolCreateInfo descriptorPoolInfo =
 		vk::initializers::DescriptorPoolCreateInfo(
 			poolSizes.size(),
 			poolSizes.data(),
-			2);
+			4);
 
 	vkCreateDescriptorPool(m_device->logicalDevice, &descriptorPoolInfo, nullptr, &m_descriptorPool);
 }
@@ -461,77 +448,75 @@ void VkRenderBackend::SetupDescriptorPool()
 void VkRenderBackend::SetupLayoutsAndDescriptors()
 {
 	std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings;
-	VkDescriptorSetLayoutCreateInfo descriptorLayout;
-	VkPipelineLayoutCreateInfo pPipelineLayoutCreateInfo;
-
-	// Scene rendering
-	setLayoutBindings =
-	{
-		// Binding 0: Vertex shader uniform buffer
-		vk::initializers::DescriptorSetLayoutBinding(
-			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-			VK_SHADER_STAGE_FRAGMENT_BIT,
-			0),
-	};
-	descriptorLayout = vk::initializers::DescriptorSetLayoutCreateInfo(setLayoutBindings.data(), static_cast<uint32_t>(setLayoutBindings.size()));
-	vkCreateDescriptorSetLayout(m_device->logicalDevice, &descriptorLayout, nullptr, &m_descriptorSetLayouts.scene);
-	pPipelineLayoutCreateInfo = vk::initializers::PipelineLayoutCreateInfo(&m_descriptorSetLayouts.scene, 1);
-	vkCreatePipelineLayout(m_device->logicalDevice, &pPipelineLayoutCreateInfo, nullptr, &m_pipelineLayouts.scene);
-
-	// Fullscreen radial blur
-	setLayoutBindings =
-	{
-		// Binding 0 : Fragment shader uniform buffer
-		vk::initializers::DescriptorSetLayoutBinding(
-			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-			VK_SHADER_STAGE_FRAGMENT_BIT,
-			0),
-		// Binding 0: Fragment shader image sampler
-		vk::initializers::DescriptorSetLayoutBinding(
-			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-			VK_SHADER_STAGE_FRAGMENT_BIT,
-			1)
-	};
-	descriptorLayout = vk::initializers::DescriptorSetLayoutCreateInfo(setLayoutBindings.data(), static_cast<uint32_t>(setLayoutBindings.size()));
-	vkCreateDescriptorSetLayout(m_device->logicalDevice, &descriptorLayout, nullptr, &m_descriptorSetLayouts.blur);
-	pPipelineLayoutCreateInfo = vk::initializers::PipelineLayoutCreateInfo(&m_descriptorSetLayouts.blur, 1);
-	vkCreatePipelineLayout(m_device->logicalDevice, &pPipelineLayoutCreateInfo, nullptr, &m_pipelineLayouts.blur);
-
+	VkDescriptorSetLayoutCreateInfo descriptorSetLayout;
+	VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo;
 	VkDescriptorSetAllocateInfo descriptorSetAllocInfo;
+	std::vector<VkWriteDescriptorSet> writeDescriptorSets;
+	std::vector<VkDescriptorImageInfo> imageDescriptors;
+	VkDescriptorSet targetDescriptorSet;
 
-	// Scene rendering
-	descriptorSetAllocInfo = vk::initializers::DescriptorSetAllocateInfo(m_descriptorPool, &m_descriptorSetLayouts.scene, 1);
-	vkAllocateDescriptorSets(m_device->logicalDevice, &descriptorSetAllocInfo, &m_descriptorSets.scene);
-
-	std::vector<VkWriteDescriptorSet> offScreenWriteDescriptorSets =
-	{
-		// Binding 0: Vertex shader uniform buffer
-		vk::initializers::WriteDescriptorSet(
-			m_descriptorSets.scene,
-			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-			0,
-			&m_uniformBuffers.scene.descriptor),
+	// G-Buffer creation (offscreen scene rendering)
+	setLayoutBindings = {
+		vk::initializers::DescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, 0),				// Vertex shader uniform buffer
 	};
-	vkUpdateDescriptorSets(m_device->logicalDevice, offScreenWriteDescriptorSets.size(), offScreenWriteDescriptorSets.data(), 0, NULL);
+	descriptorSetLayout = vk::initializers::DescriptorSetLayoutCreateInfo(setLayoutBindings.data(), static_cast<uint32_t>(setLayoutBindings.size()));
+	m_resources.descriptorSetLayouts->add("scene", descriptorSetLayout);
+	pipelineLayoutCreateInfo = vk::initializers::PipelineLayoutCreateInfo(m_resources.descriptorSetLayouts->getPtr("scene"), 1);
+	m_resources.pipelineLayouts->add("scene", pipelineLayoutCreateInfo);
+	descriptorSetAllocInfo = vk::initializers::DescriptorSetAllocateInfo(m_descriptorPool, m_resources.descriptorSetLayouts->getPtr("scene"), 1);
+	targetDescriptorSet = m_resources.descriptorSets->add("scene", descriptorSetAllocInfo);
+	writeDescriptorSets = {
+		vk::initializers::WriteDescriptorSet(targetDescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &m_uniformBuffers.scene.descriptor),// Binding 0 : Vertex shader uniform buffer			
+	};
+	vkUpdateDescriptorSets(m_device->logicalDevice, writeDescriptorSets.size(), writeDescriptorSets.data(), 0, NULL);
+
+	// Deferred lights
+	setLayoutBindings =
+	{
+		vk::initializers::DescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, 0),				// Fragment shader uniform buffer
+		vk::initializers::DescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1),		// Position texture target / Scene colormap
+		vk::initializers::DescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 2),		// Normals texture target
+		vk::initializers::DescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 3),		// Albedo texture target
+	};
+	descriptorSetLayout = vk::initializers::DescriptorSetLayoutCreateInfo(setLayoutBindings.data(), static_cast<uint32_t>(setLayoutBindings.size()));
+	m_resources.descriptorSetLayouts->add("lights", descriptorSetLayout);
+	pipelineLayoutCreateInfo = vk::initializers::PipelineLayoutCreateInfo(m_resources.descriptorSetLayouts->getPtr("lights"), 1);
+	m_resources.pipelineLayouts->add("lights", pipelineLayoutCreateInfo);
+	descriptorSetAllocInfo = vk::initializers::DescriptorSetAllocateInfo(m_descriptorPool, m_resources.descriptorSetLayouts->getPtr("lights"), 1);
+	targetDescriptorSet = m_resources.descriptorSets->add("lights", descriptorSetAllocInfo);
+	imageDescriptors = {
+		vk::initializers::DescriptorImageInfo(m_colorSampler, m_framebuffers.offscreen.attachments[0].view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+		vk::initializers::DescriptorImageInfo(m_colorSampler, m_framebuffers.offscreen.attachments[1].view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+		vk::initializers::DescriptorImageInfo(m_colorSampler, m_framebuffers.offscreen.attachments[2].view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+		//vk::initializers::DescriptorImageInfo(m_colorSampler, m_framebuffers.blur.attachments[0].view, VK_IMAGE_LAYOUT_GENERAL),
+	};
+	writeDescriptorSets = {
+		vk::initializers::WriteDescriptorSet(targetDescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &m_uniformBuffers.lights.descriptor),		// Binding 1 : Fragment shader uniform buffer
+		vk::initializers::WriteDescriptorSet(targetDescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &imageDescriptors[0]),				// Binding 2 : Position texture target			
+		vk::initializers::WriteDescriptorSet(targetDescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2, &imageDescriptors[1]),				// Binding 3 : Normals texture target			
+		vk::initializers::WriteDescriptorSet(targetDescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3, &imageDescriptors[2])				// Binding 4 : Albedo texture target			
+	};
+	vkUpdateDescriptorSets(m_device->logicalDevice, writeDescriptorSets.size(), writeDescriptorSets.data(), 0, NULL);
 
 	// Fullscreen radial blur
-	descriptorSetAllocInfo = vk::initializers::DescriptorSetAllocateInfo(m_descriptorPool, &m_descriptorSetLayouts.blur, 1);
-	vkAllocateDescriptorSets(m_device->logicalDevice, &descriptorSetAllocInfo, &m_descriptorSets.blur);
-
-	std::vector<VkWriteDescriptorSet> writeDescriptorSets =
+	setLayoutBindings =
 	{
-		// Binding 0: Vertex shader uniform buffer
-		vk::initializers::WriteDescriptorSet(
-			m_descriptorSets.blur,
-			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-			0,
-			&m_uniformBuffers.blur.descriptor),
-		// Binding 0: Fragment shader texture sampler
-		vk::initializers::WriteDescriptorSet(
-			m_descriptorSets.blur,
-			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-			1,
-			&m_framebuffers.offscreen.descriptor),
+		vk::initializers::DescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,	VK_SHADER_STAGE_FRAGMENT_BIT, 0),			// Binding 0 : Fragment shader uniform buffer
+		vk::initializers::DescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,	VK_SHADER_STAGE_FRAGMENT_BIT, 1)	// Binding 1 : Fragment shader image sampler
+	};
+	descriptorSetLayout = vk::initializers::DescriptorSetLayoutCreateInfo(setLayoutBindings.data(), static_cast<uint32_t>(setLayoutBindings.size()));
+	m_resources.descriptorSetLayouts->add("blur", descriptorSetLayout);
+	pipelineLayoutCreateInfo = vk::initializers::PipelineLayoutCreateInfo(m_resources.descriptorSetLayouts->getPtr("blur"), 1);
+	m_resources.pipelineLayouts->add("blur", pipelineLayoutCreateInfo);
+	descriptorSetAllocInfo = vk::initializers::DescriptorSetAllocateInfo(m_descriptorPool, m_resources.descriptorSetLayouts->getPtr("blur"), 1);
+	targetDescriptorSet = m_resources.descriptorSets->add("blur", descriptorSetAllocInfo);
+	imageDescriptors = {
+		vk::initializers::DescriptorImageInfo(m_colorSampler, m_framebuffers.lights.attachments[0].view, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL),
+	};
+	writeDescriptorSets =
+	{
+		vk::initializers::WriteDescriptorSet(targetDescriptorSet,	VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &m_uniformBuffers.blur.descriptor),			// Binding 0: Vertex shader uniform buffer
+		vk::initializers::WriteDescriptorSet(targetDescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &imageDescriptors[0])	// Binding 1 : Fragment shader texture sampler
 	};
 
 	vkUpdateDescriptorSets(m_device->logicalDevice, writeDescriptorSets.size(), writeDescriptorSets.data(), 0, NULL);
@@ -548,8 +533,8 @@ void VkRenderBackend::PreparePipelines()
 	VkPipelineRasterizationStateCreateInfo rasterizationState =
 		vk::initializers::PipelineRasterizationStateCreateInfo(
 			VK_POLYGON_MODE_FILL,
-			VK_CULL_MODE_NONE,
-			VK_FRONT_FACE_COUNTER_CLOCKWISE,
+			VK_CULL_MODE_BACK_BIT,
+			VK_FRONT_FACE_CLOCKWISE,
 			0);
 
 	VkPipelineColorBlendAttachmentState blendAttachmentState =
@@ -590,7 +575,7 @@ void VkRenderBackend::PreparePipelines()
 
 	VkGraphicsPipelineCreateInfo pipelineCreateInfo =
 		vk::initializers::GraphicsPipelineCreateInfo(
-			m_pipelineLayouts.blur,
+			m_resources.pipelineLayouts->get("scene"),
 			m_context.renderPass,
 			0);
 
@@ -604,33 +589,49 @@ void VkRenderBackend::PreparePipelines()
 	pipelineCreateInfo.stageCount = shaderStages.size();
 	pipelineCreateInfo.pStages = shaderStages.data();
 
-	// Radial blur pipeline
-	shaderStages[0] = VkRenderBase::LoadShader("shaders/screenTri.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-	shaderStages[1] = VkRenderBase::LoadShader("shaders/radialblur.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
-	// Empty vertex input state
+	// G-Buffer Generation
+	shaderStages[0] = LoadShader("shaders/screenTri.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+	shaderStages[1] = LoadShader("shaders/sceneSDF.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+
+	std::array<VkPipelineColorBlendAttachmentState, 3> blendAttachmentStates = {
+		vk::initializers::PipelineColorBlendAttachmentState(0xf, VK_FALSE),
+		vk::initializers::PipelineColorBlendAttachmentState(0xf, VK_FALSE),
+		vk::initializers::PipelineColorBlendAttachmentState(0xf, VK_FALSE)
+	};
+	colorBlendState.attachmentCount = blendAttachmentStates.size();
+	colorBlendState.pAttachments = blendAttachmentStates.data();
+
 	VkPipelineVertexInputStateCreateInfo emptyInputState = vk::initializers::PipelineVertexInputStateCreateInfo();
 	pipelineCreateInfo.pVertexInputState = &emptyInputState;
-	//pipelineCreateInfo.layout = m_pipelineLayouts.blur;
-	// Additive blending
-	blendAttachmentState.colorWriteMask = 0xF;
-	blendAttachmentState.blendEnable = VK_TRUE;
+	pipelineCreateInfo.renderPass = m_framebuffers.offscreen.renderPass;
+	pipelineCreateInfo.layout = m_resources.pipelineLayouts->get("scene");
 	blendAttachmentState.colorBlendOp = VK_BLEND_OP_ADD;
 	blendAttachmentState.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
 	blendAttachmentState.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
 	blendAttachmentState.alphaBlendOp = VK_BLEND_OP_ADD;
 	blendAttachmentState.srcAlphaBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
 	blendAttachmentState.dstAlphaBlendFactor = VK_BLEND_FACTOR_DST_ALPHA;
-	vkCreateGraphicsPipelines(m_device->logicalDevice, m_pipelineCache, 1, &pipelineCreateInfo, nullptr, &m_pipelines.blur);
-
-	// Color only pass (offscreen blur base)
-	shaderStages[0] = LoadShader("shaders/screenTri.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-	shaderStages[1] = LoadShader("shaders/sceneSDF.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
-	pipelineCreateInfo.pVertexInputState = &emptyInputState;
-	pipelineCreateInfo.renderPass = m_framebuffers.offscreen.renderPass;
-	pipelineCreateInfo.layout = m_pipelineLayouts.scene;
-	blendAttachmentState.blendEnable = VK_FALSE;
 	depthStencilState.depthWriteEnable = VK_TRUE;
-	vkCreateGraphicsPipelines(m_device->logicalDevice, m_pipelineCache, 1, &pipelineCreateInfo, nullptr, &m_pipelines.scene);
+	m_resources.pipelines->add("scene", pipelineCreateInfo, m_pipelineCache);
+
+	// Deferred lighting pipeline
+	shaderStages[1] = VkRenderBase::LoadShader("shaders/deferred.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+	colorBlendState.pAttachments = &blendAttachmentState;
+	colorBlendState.attachmentCount = 1;
+	pipelineCreateInfo.layout = m_resources.pipelineLayouts->get("lights");
+	pipelineCreateInfo.renderPass = m_framebuffers.lights.renderPass;
+	m_resources.pipelines->add("lights", pipelineCreateInfo, m_pipelineCache);
+
+	// Radial blur pipeline
+	shaderStages[1] = VkRenderBase::LoadShader("shaders/radialblur.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+	// Empty vertex input state
+	pipelineCreateInfo.renderPass = m_context.renderPass;
+	pipelineCreateInfo.pVertexInputState = &emptyInputState;
+	pipelineCreateInfo.layout = m_resources.pipelineLayouts->get("blur");
+	// Additive blending
+	blendAttachmentState.colorWriteMask = 0xF;
+	blendAttachmentState.blendEnable = VK_TRUE;
+	m_resources.pipelines->add("blur", pipelineCreateInfo, m_pipelineCache);
 }
 
 // Prepare and initialize uniform buffer containing shader uniforms
@@ -641,7 +642,8 @@ void VkRenderBackend::PrepareUniformBuffers()
 		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
 		sizeof(uboScene),
-		&m_uniformBuffers.scene);
+		&m_uniformBuffers.scene,
+		&uboScene);
 
 	// Fullscreen radial blur parameters
 	m_device->CreateBuffer(
@@ -651,21 +653,18 @@ void VkRenderBackend::PrepareUniformBuffers()
 		&m_uniformBuffers.blur,
 		&uboBlur);
 
+	// Fullscreen radial blur parameters
+	m_device->CreateBuffer(
+		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		sizeof(UBOLight),
+		&m_uniformBuffers.lights,
+		&uboLights);
+
 	// Map persistent
 	m_uniformBuffers.scene.map();
 	m_uniformBuffers.blur.map();
-}
-
-void VkRenderBackend::SetupVertexInput()
-{
-	vertexInput.attributeDescriptions = vk::Vertex::GetAttributeDescriptions();
-	vertexInput.bindingDescriptions.push_back(vk::Vertex::GetBindingDescription());
-
-	vertexInput.inputState = vk::initializers::PipelineVertexInputStateCreateInfo();
-	vertexInput.inputState.vertexBindingDescriptionCount = vertexInput.bindingDescriptions.size();
-	vertexInput.inputState.pVertexBindingDescriptions = vertexInput.bindingDescriptions.data();
-	vertexInput.inputState.vertexAttributeDescriptionCount = vertexInput.attributeDescriptions.size();
-	vertexInput.inputState.pVertexAttributeDescriptions = vertexInput.attributeDescriptions.data();
+	m_uniformBuffers.lights.map();
 }
 
 void VkRenderBackend::RequestFrameRender()
@@ -677,6 +676,7 @@ void VkRenderBackend::RequestFrameRender()
 
 void VkRenderBackend::UpdateUniformBuffers(Camera camera, glm::vec3* deformVecs, float dt)
 {
+	// Scene rendering
 	uboScene.view = camera.getView();
 	uboScene.fov = 45.0f;
 	uboScene.eye = camera.getPos();
@@ -688,6 +688,17 @@ void VkRenderBackend::UpdateUniformBuffers(Camera camera, glm::vec3* deformVecs,
 
 	m_uniformBuffers.scene.copyTo(&uboScene, sizeof(UBOScene));
 	m_uniformBuffers.scene.unmap();
+
+	// Deferred lighting
+	uboLights.view = camera.getView();
+	uboLights.eye = glm::vec4(camera.getPos(), 0.0f);
+	uboLights.model = glm::mat4();
+
+	if (!m_uniformBuffers.lights.mapped)
+		m_uniformBuffers.lights.map();
+
+	m_uniformBuffers.lights.copyTo(&uboScene, sizeof(UBOScene));
+	m_uniformBuffers.lights.unmap();
 }
 
 #pragma region Vulkan Functions
@@ -714,154 +725,95 @@ void VkRenderBackend::CreateDescriptorSetLayout()
 	layoutInfo.bindingCount = 1;
 	layoutInfo.pBindings = bindings.data();
 
-	if (vkCreateDescriptorSetLayout(m_device->logicalDevice, &layoutInfo, nullptr, &m_descriptorSetLayouts.scene) != VK_SUCCESS)
+	if (vkCreateDescriptorSetLayout(m_device->logicalDevice, &layoutInfo, nullptr, m_resources.descriptorSetLayouts->getPtr("scene")) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to create descriptor set layout!");
 	}
 
 	layoutInfo.bindingCount = 2;
 
-	if (vkCreateDescriptorSetLayout(m_device->logicalDevice, &layoutInfo, nullptr, &m_descriptorSetLayouts.blur) != VK_SUCCESS)
+	if (vkCreateDescriptorSetLayout(m_device->logicalDevice, &layoutInfo, nullptr, m_resources.descriptorSetLayouts->getPtr("blur")) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to create descriptor set layout!");
 	}
 }
 
-void VkRenderBackend::CreateTextureImage()
-{
-	int32_t texWidth, texHeight, texChannels;
-	stbi_uc* pixels = stbi_load("../source/assets/textures/TestTexture.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
-	VkDeviceSize imageSize = texWidth * texHeight * 4;
+//void VkRenderBackend::CreateTextureImage()
+//{
+//	int32_t texWidth, texHeight, texChannels;
+//	stbi_uc* pixels = stbi_load("../source/assets/textures/TestTexture.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+//	VkDeviceSize imageSize = texWidth * texHeight * 4;
+//
+//	if (!pixels)
+//	{
+//		throw std::runtime_error("failed to load texture image");
+//	}
+//
+//	VkBuffer stagingBuffer;
+//	VkDeviceMemory stagingBufferMemory;
+//	m_device->CreateBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, imageSize, &stagingBuffer, &stagingBufferMemory);
+//
+//	void* data;
+//	vkMapMemory(m_device->logicalDevice, stagingBufferMemory, 0, imageSize, 0, &data);
+//	memcpy(data, pixels, static_cast<size_t>(imageSize));
+//	vkUnmapMemory(m_device->logicalDevice, stagingBufferMemory);
+//
+//	stbi_image_free(pixels);
+//
+//	m_device->CreateImage(texWidth, texHeight, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_textureImage, m_textureImageMemory);
+//
+//	m_device->TransitionImageLayout(m_textureImage, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, m_context.graphicsQueue);
+//	m_device->CopyBufferToImage(stagingBuffer, m_textureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight), m_context.graphicsQueue);
+//	m_device->TransitionImageLayout(m_textureImage, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, m_context.graphicsQueue);
+//
+//	vkDestroyBuffer(m_device->logicalDevice, stagingBuffer, nullptr);
+//	vkFreeMemory(m_device->logicalDevice, stagingBufferMemory, nullptr);
+//}
 
-	if (!pixels)
-	{
-		throw std::runtime_error("failed to load texture image");
-	}
+//void VkRenderBackend::CreateTextureImageView()
+//{
+//	VkImageViewCreateInfo viewInfo = {};
+//	viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+//	viewInfo.image = m_textureImage;
+//	viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+//	viewInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+//	viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+//	viewInfo.subresourceRange.baseMipLevel = 0;
+//	viewInfo.subresourceRange.levelCount = 1;
+//	viewInfo.subresourceRange.baseArrayLayer = 0;
+//	viewInfo.subresourceRange.layerCount = 1;
+//
+//	if (vkCreateImageView(m_device->logicalDevice, &viewInfo, nullptr, &m_textureImageView) != VK_SUCCESS)
+//	{
+//		throw std::runtime_error("failed to create texture image view!");
+//	}
+//}
 
-	VkBuffer stagingBuffer;
-	VkDeviceMemory stagingBufferMemory;
-	m_device->CreateBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, imageSize, &stagingBuffer, &stagingBufferMemory);
-
-	void* data;
-	vkMapMemory(m_device->logicalDevice, stagingBufferMemory, 0, imageSize, 0, &data);
-	memcpy(data, pixels, static_cast<size_t>(imageSize));
-	vkUnmapMemory(m_device->logicalDevice, stagingBufferMemory);
-
-	stbi_image_free(pixels);
-
-	m_device->CreateImage(texWidth, texHeight, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_textureImage, m_textureImageMemory);
-
-	m_device->TransitionImageLayout(m_textureImage, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, m_context.graphicsQueue);
-	m_device->CopyBufferToImage(stagingBuffer, m_textureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight), m_context.graphicsQueue);
-	m_device->TransitionImageLayout(m_textureImage, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, m_context.graphicsQueue);
-
-	vkDestroyBuffer(m_device->logicalDevice, stagingBuffer, nullptr);
-	vkFreeMemory(m_device->logicalDevice, stagingBufferMemory, nullptr);
-}
-
-void VkRenderBackend::CreateTextureImageView()
-{
-	VkImageViewCreateInfo viewInfo = {};
-	viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-	viewInfo.image = m_textureImage;
-	viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-	viewInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
-	viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	viewInfo.subresourceRange.baseMipLevel = 0;
-	viewInfo.subresourceRange.levelCount = 1;
-	viewInfo.subresourceRange.baseArrayLayer = 0;
-	viewInfo.subresourceRange.layerCount = 1;
-
-	if (vkCreateImageView(m_device->logicalDevice, &viewInfo, nullptr, &m_textureImageView) != VK_SUCCESS)
-	{
-		throw std::runtime_error("failed to create texture image view!");
-	}
-}
-
-void VkRenderBackend::CreateTextureSampler()
-{
-	VkSamplerCreateInfo samplerInfo = {};
-	samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-	samplerInfo.magFilter = VK_FILTER_LINEAR;
-	samplerInfo.minFilter = VK_FILTER_LINEAR;
-	samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	samplerInfo.anisotropyEnable = VK_TRUE;
-	samplerInfo.maxAnisotropy = 16;
-	samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-	samplerInfo.unnormalizedCoordinates = VK_FALSE;
-	samplerInfo.compareEnable = VK_FALSE;
-	samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
-	samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-	samplerInfo.mipLodBias = 0.0f;
-	samplerInfo.minLod = 0.0f;
-	samplerInfo.maxLod = 0.0f;
-
-	if (vkCreateSampler(m_device->logicalDevice, &samplerInfo, nullptr, &m_textureSampler) != VK_SUCCESS)
-	{
-		throw std::runtime_error("failed to create texture sampler!");
-	}
-}
-
-void VkRenderBackend::CreateVertexBuffer()
-{
-	std::vector<vk::Vertex> vertices;
-	for (auto& model : m_models)
-	{
-		for (int i = 0; i < model.getNumVertices(); ++i)
-		{
-			vertices.push_back(model.getVertices()[i]);
-		}
-	}
-
-	VkDeviceSize bufferSize = sizeof(vk::Vertex) * vertices.size();
-
-	VkBuffer stagingBuffer;
-	VkDeviceMemory stagingBufferMemory;
-	m_device->CreateBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, bufferSize, &stagingBuffer, &stagingBufferMemory);
-	void* data;
-	vkMapMemory(m_device->logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);
-	memcpy(data, vertices.data(), (size_t)bufferSize);
-	vkUnmapMemory(m_device->logicalDevice, stagingBufferMemory);
-
-	m_device->CreateBuffer(VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, bufferSize, &m_vertexBuffer, &m_vertexBufferMemory);
-
-	m_device->CopyBuffer(stagingBuffer, m_vertexBuffer, bufferSize, m_context.graphicsQueue);
-
-	vkDestroyBuffer(m_device->logicalDevice, stagingBuffer, nullptr);
-	vkFreeMemory(m_device->logicalDevice, stagingBufferMemory, nullptr);
-}
-
-void VkRenderBackend::CreateIndexBuffer()
-{
-	std::vector<uint32_t> indicies;
-	for (auto& model : m_models)
-	{
-		for (int i = 0; i < model.getNumIndices(); ++i)
-		{
-			indicies.push_back(model.getIndices()[i]);
-		}
-	}
-
-	VkDeviceSize bufferSize = sizeof(uint32_t) * indicies.size();
-	
-	VkBuffer stagingBuffer;
-	VkDeviceMemory stagingBufferMemory;
-	m_device->CreateBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, bufferSize, &stagingBuffer, &stagingBufferMemory);
-
-	void* data;
-	vkMapMemory(m_device->logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);
-	memcpy(data, indicies.data(), (size_t)bufferSize);
-	vkUnmapMemory(m_device->logicalDevice, stagingBufferMemory);
-
-	m_device->CreateBuffer(VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, bufferSize, &m_indexBuffer, &m_indexBufferMemory);
-
-	m_device->CopyBuffer(stagingBuffer, m_indexBuffer, bufferSize, m_context.graphicsQueue);
-
-	vkDestroyBuffer(m_device->logicalDevice, stagingBuffer, nullptr);
-	vkFreeMemory(m_device->logicalDevice, stagingBufferMemory, nullptr);
-}
+//void VkRenderBackend::CreateTextureSampler()
+//{
+//	VkSamplerCreateInfo samplerInfo = {};
+//	samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+//	samplerInfo.magFilter = VK_FILTER_LINEAR;
+//	samplerInfo.minFilter = VK_FILTER_LINEAR;
+//	samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+//	samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+//	samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+//	samplerInfo.anisotropyEnable = VK_TRUE;
+//	samplerInfo.maxAnisotropy = 16;
+//	samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+//	samplerInfo.unnormalizedCoordinates = VK_FALSE;
+//	samplerInfo.compareEnable = VK_FALSE;
+//	samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+//	samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+//	samplerInfo.mipLodBias = 0.0f;
+//	samplerInfo.minLod = 0.0f;
+//	samplerInfo.maxLod = 0.0f;
+//
+//	if (vkCreateSampler(m_device->logicalDevice, &samplerInfo, nullptr, &m_textureSampler) != VK_SUCCESS)
+//	{
+//		throw std::runtime_error("failed to create texture sampler!");
+//	}
+//}
 
 void VkRenderBackend::Draw()
 {
@@ -872,17 +824,17 @@ void VkRenderBackend::Draw()
 	// Wait for swap chain presentation to finish
 	m_submitInfo.pWaitSemaphores = &m_semaphores.imageAvailable;
 	// Signal ready with offscreen semaphore
-	m_submitInfo.pSignalSemaphores = &m_framebuffers.offscreen.semaphore;
+	m_submitInfo.pSignalSemaphores = &m_offscreenSemaphore;
 
 	// Submit work
 	m_submitInfo.commandBufferCount = 1;
-	m_submitInfo.pCommandBuffers = &m_framebuffers.offscreen.commandBuffer;
+	m_submitInfo.pCommandBuffers = &m_offscreenCommandBuffer;
 	vkQueueSubmit(m_context.graphicsQueue, 1, &m_submitInfo, VK_NULL_HANDLE);
 
 	// Scene rendering
 
 	// Wait for offscreen semaphore
-	m_submitInfo.pWaitSemaphores = &m_framebuffers.offscreen.semaphore;
+	m_submitInfo.pWaitSemaphores = &m_offscreenSemaphore;
 	// Signal ready with render complete semaphpre
 	m_submitInfo.pSignalSemaphores = &m_semaphores.renderFinished;
 
@@ -893,8 +845,51 @@ void VkRenderBackend::Draw()
 	VkRenderBase::SubmitFrame();
 }
 
+void VkRenderBackend::SetupLights()
+{
+	// 5 fixed lights
+	std::array<glm::vec3, 5> lightColors;
+	lightColors[0] = glm::vec3(1.0f, 0.0f, 0.0f);
+	lightColors[1] = glm::vec3(1.0f, 0.7f, 0.7f);
+	lightColors[2] = glm::vec3(1.0f, 0.0f, 0.0f);
+	lightColors[3] = glm::vec3(0.0f, 0.0f, 1.0f);
+	lightColors[4] = glm::vec3(1.0f, 0.0f, 0.0f);
+
+	for (int32_t i = 0; i < lightColors.size(); i++)
+	{
+		SetupLight(&uboLights.lights[i], glm::vec3((float)(i - 2.5f) * 50.0f, -10.0f, 0.0f), lightColors[i], 120.0f);
+	}
+
+	// Dynamic light moving over the floor
+	SetupLight(&uboLights.lights[0], { -sin(glm::radians(360.0f)) * 120.0f, -2.5f, cos(glm::radians(360.0f * 8.0f)) * 10.0f }, glm::vec3(1.0f), 100.0f);
+
+	SetupLight(&uboLights.lights[5], { -48.75f, -16.0f, -17.8f }, { 1.0f, 0.6f, 0.0f }, 45.0f);
+	SetupLight(&uboLights.lights[6], { -48.75f, -16.0f,  18.4f }, { 1.0f, 0.6f, 0.0f }, 45.0f);
+	SetupLight(&uboLights.lights[7], { 62.0f, -16.0f, -17.8f }, { 1.0f, 0.6f, 0.0f }, 45.0f);
+	SetupLight(&uboLights.lights[8], { 62.0f, -16.0f,  18.4f }, { 1.0f, 0.6f, 0.0f }, 45.0f);
+	
+	SetupLight(&uboLights.lights[9], { 120.0f, -20.0f, -43.75f }, { 1.0f, 0.8f, 0.3f }, 75.0f);
+	SetupLight(&uboLights.lights[10], { 120.0f, -20.0f, 41.75f }, { 1.0f, 0.8f, 0.3f }, 75.0f);
+	SetupLight(&uboLights.lights[11], { -110.0f, -20.0f, -43.75f }, { 1.0f, 0.8f, 0.3f }, 75.0f);
+	SetupLight(&uboLights.lights[12], { -110.0f, -20.0f, 41.75f }, { 1.0f, 0.8f, 0.3f }, 75.0f);
+
+	SetupLight(&uboLights.lights[13], { -122.0f, -18.0f, -3.2f }, { 1.0f, 0.3f, 0.3f }, 25.0f);
+	SetupLight(&uboLights.lights[14], { -122.0f, -18.0f,  3.2f }, { 0.3f, 1.0f, 0.3f }, 25.0f);
+	
+	SetupLight(&uboLights.lights[15], { 135.0f, -18.0f, -3.2f }, { 0.3f, 0.3f, 1.0f }, 25.0f);
+	SetupLight(&uboLights.lights[16], { 135.0f, -18.0f,  3.2f }, { 1.0f, 1.0f, 0.3f }, 25.0f);
+}
+
 #pragma endregion
 
 #pragma region Helper Functions
+
+void VkRenderBackend::SetupLight(Light *light, glm::vec3 pos, glm::vec3 color, float radius)
+{
+	light->position = glm::vec4(pos, 1.0f);
+	light->color = glm::vec4(color, 1.0f);
+	light->radius = radius;
+	// linear and quadratic falloff not used with new shader
+}
 
 #pragma endregion

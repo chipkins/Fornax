@@ -18,9 +18,17 @@ public:
 
 	void UpdateUniformBuffers(Camera camera, glm::vec3* deformVecs, float dt);
 
-	std::vector<vk::Model> GetModelList() { return m_models; }
+	//std::vector<vk::Model> GetModelList() { return m_models; }
 
 private:
+
+	struct Resources
+	{
+		vk::PipelineLayoutList* pipelineLayouts;
+		vk::PipelineList *pipelines;
+		vk::DescriptorSetLayoutList *descriptorSetLayouts;
+		vk::DescriptorSetList * descriptorSets;
+	} m_resources;
 
 	struct {
 		VkPipelineVertexInputStateCreateInfo inputState;
@@ -40,34 +48,31 @@ private:
 	struct UBOBlur
 	{
 		float radialBlurScale = 0.35f;
-		float radialBlurStrength = 0.75f;
+		float radialBlurStrength = 0.95f;
 		glm::vec2 radialOrigin = glm::vec2(0.5f, 0.5f);
 	} uboBlur;
+
+	struct Light {
+		glm::vec4 position;
+		glm::vec4 color;
+		float radius;
+		float quadraticFalloff;
+		float linearFalloff;
+		float _padding;
+	};
+
+	struct UBOLight {
+		Light lights[17];
+		glm::vec4 eye;
+		glm::mat4 view;
+		glm::mat4 model;
+	} uboLights;
 
 	struct {
 		vk::Buffer blur;
 		vk::Buffer scene;
+		vk::Buffer lights;
 	} m_uniformBuffers;
-
-	struct {
-		VkPipeline blur;
-		VkPipeline scene;
-	} m_pipelines;
-
-	struct {
-		VkPipelineLayout blur;
-		VkPipelineLayout scene;
-	} m_pipelineLayouts;
-
-	struct {
-		VkDescriptorSet blur;
-		VkDescriptorSet scene;
-	} m_descriptorSets;
-
-	struct {
-		VkDescriptorSetLayout blur;
-		VkDescriptorSetLayout scene;
-	} m_descriptorSetLayouts;
 
 	struct FrameBufferAttachment {
 		VkImage image;
@@ -85,56 +90,46 @@ private:
 	struct FrameBuffer {
 		int32_t width, height;
 		VkFramebuffer frameBuffer;
-		FrameBufferAttachment color, depth;
+		FrameBufferAttachment depth;
 		VkRenderPass renderPass;
-		VkSampler sampler;
-		VkDescriptorImageInfo descriptor;
-		VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
-		VkSemaphore semaphore = VK_NULL_HANDLE;
+		//VkSampler sampler;
+		//VkDescriptorImageInfo descriptor;
 	};
 
 	struct {
 		struct Offscreen : public FrameBuffer {
 			std::array<FrameBufferAttachment, 3> attachments;
 		} offscreen;
-		struct PostProcess : public FrameBuffer {
+		struct Deferred : public FrameBuffer {
 			std::array<FrameBufferAttachment, 1> attachments;
-		} blur;
+		} lights;
 	} m_framebuffers;
 
-	VkImage        m_textureImage;
-	VkImageView    m_textureImageView;
-	VkDeviceMemory m_textureImageMemory;
-	VkSampler      m_textureSampler;
-	
-	std::vector<vk::Model> m_models;
-	VkBuffer               m_vertexBuffer;
-	VkDeviceMemory         m_vertexBufferMemory;
-	VkBuffer               m_indexBuffer;
-	VkDeviceMemory         m_indexBufferMemory;
+	VkSampler      m_colorSampler;
+
+	VkCommandBuffer m_offscreenCommandBuffer = VK_NULL_HANDLE;
+	VkSemaphore     m_offscreenSemaphore = VK_NULL_HANDLE;
 
 	// Vulkan Initialization Functions
 	void CreateDescriptorSetLayout();
-	void CreateTextureImage();
+	/*void CreateTextureImage();
 	void CreateTextureImageView();
-	void CreateTextureSampler();
-	void CreateVertexBuffer();
-	void CreateIndexBuffer();
+	void CreateTextureSampler();*/
 
 	// Create a frame buffer attachment
 	void CreateAttachment(VkFormat format, VkImageUsageFlagBits usage, FrameBufferAttachment *attachment, uint32_t width, uint32_t height);
 	void PrepareOffscreenFramebuffers();
-	void BuildOffscreenCommandBuffer();
+	void BuildDeferredCommandBuffer();
 	virtual void BuildCommandBuffers();
 	//void RebuildCommandBuffers();
 	void SetupDescriptorPool();
 	void SetupLayoutsAndDescriptors();
 	void PreparePipelines();
 	void PrepareUniformBuffers();
-	//void SetupLights();
-	void SetupVertexInput();
+	void SetupLights();
 
 	void Draw();
 
 	// Helper Functions
+	void SetupLight(Light *light, glm::vec3 pos, glm::vec3 color, float radius);
 };

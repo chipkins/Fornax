@@ -241,11 +241,10 @@ namespace vk
 			return pipelineLayoutCreateInfo;
 		}
 
-		inline VkPipelineLayoutCreateInfo PipelineLayoutCreateInfo(uint32_t setLayoutCount)
+		inline VkPipelineLayoutCreateInfo PipelineLayoutCreateInfo()
 		{
 			VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {};
 			pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-			pipelineLayoutCreateInfo.setLayoutCount = setLayoutCount;
 			return pipelineLayoutCreateInfo;
 		}
 

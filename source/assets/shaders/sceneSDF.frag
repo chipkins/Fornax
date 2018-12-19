@@ -5,8 +5,6 @@ const float MIN_DIST = 0.2;
 const float MAX_DIST = 20.0;
 const float EPSILON = 0.0001;
 
-const vec3 light1 = vec3(3.0, 3.0, -3.0);
-
 // Descriptor Bindings ---------------------------
 
 layout (binding = 0) uniform UBO 
@@ -22,13 +20,13 @@ layout (binding = 0) uniform UBO
 
 layout (location = 0) in vec2 inUV;
 
-layout (location = 0) out vec4 outColor;
+layout (location = 0) out vec4 outPosition;
+layout (location = 1) out vec4 outNormal;
+layout (location = 2) out vec4 outAlbedo;
 
 // ------------------------------------------------
 
-/**
- * Rotation matrix around the X axis.
- */
+// Rotation matrix around the X axis.
 mat3 rotateX(float theta) {
     float c = cos(theta);
     float s = sin(theta);
@@ -39,9 +37,7 @@ mat3 rotateX(float theta) {
     );
 }
 
-/**
- * Rotation matrix around the Y axis.
- */
+// Rotation matrix around the Y axis.
 mat3 rotateY(float theta) {
     float c = cos(theta);
     float s = sin(theta);
@@ -52,9 +48,7 @@ mat3 rotateY(float theta) {
     );
 }
 
-/**
- * Rotation matrix around the Z axis.
- */
+// Rotation matrix around the Z axis.
 mat3 rotateZ(float theta) {
     float c = cos(theta);
     float s = sin(theta);
@@ -170,34 +164,20 @@ vec3 estimateNormal(vec3 p)
 
 void main() 
 {
-	// mat4 screenToWorld = inverse(camera.proj * camera.view);
-	// vec3 screenPos = normalize(vec3(gl_FragCoord.xy - camera.resolution/2.0, 100));
-	// vec4 worldPos =  screenToWorld * vec4(screenPos, 1.0);
-	// vec3 dir = worldPos.xyz;
 	vec3 dir = (camera.view * vec4(rayDirection(camera.fov, camera.resolution, gl_FragCoord.xy), 0.0)).xyz;
 	float dist = sphereTrace(camera.eye, dir);
 
 	if (dist > MAX_DIST - EPSILON) // Didn't hit an object
 	{
-		outColor = vec4(vec3(0.0), 1.0);
-		return;
+		outAlbedo = vec4(vec3(0.0), 1.0);
+	}
+	else
+	{
+		outAlbedo = vec4(0.7, 0.2, 0.2, 1.0);
 	}
 
-	vec3 p = camera.eye + dist * dir; // Closest point on the surface
+	vec3 p = camera.eye + dist * dir;
 
-	// Calculate lighting
-	vec4 ambientColor = vec4(vec3(0.02), 1.0);
-	vec4 diffuseColor = vec4(0.7, 0.2, 0.2, 1.0);
-	vec4 specularColor = vec4(1.0);
-	float shininess = 16.0;
-
-	vec3 N = estimateNormal(p);
-	vec3 L = normalize(light1 - p);
-	vec3 V = normalize(camera.eye - p);
-	vec3 H = normalize(L + V);
-
-	float NdotL = clamp(dot(N, L), 0.0, 1.0);
-	float NdotH = clamp(dot(N, H), 0.0, 1.0);
-
-	outColor = ambientColor + (diffuseColor * NdotL) + pow(NdotH, shininess);
+	outPosition = vec4(p, 0.0);
+	outNormal = vec4(estimateNormal(p), 0.0);
 }
